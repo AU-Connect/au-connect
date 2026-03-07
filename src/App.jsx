@@ -5,6 +5,7 @@ import Feed from './pages/Feed';
 import ReportIssue from './pages/ReportIssue';
 import AdminDashboard from './pages/AdminDashboard';
 import Onboarding from './pages/Onboarding';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -21,6 +22,11 @@ function App() {
             <Route path="/onboarding" element={
               <ProtectedRoute>
                 <Onboarding />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             } />
 

@@ -2,9 +2,17 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.png';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
-    const { currentUser } = useAuth();
+    const { currentUser, userData, isOnboarded, logout } = useAuth();
     const location = useLocation();
 
     const navLinks = [
@@ -13,6 +21,8 @@ const Navbar = () => {
         { name: 'Report Issue', path: '/report' },
         { name: 'Unibot', path: '/unibot' },
     ];
+
+    const isActiveProfile = location.pathname === '/profile';
 
     return (
         <nav className="sticky top-0 z-50 w-full bg-surface border-b border-border-custom px-6 py-3 flex items-center justify-between shadow-sm">
@@ -43,19 +53,29 @@ const Navbar = () => {
                 })}
 
                 {currentUser ? (
-                    <Link to="/profile" className="flex items-center gap-2 bg-app-bg p-1.5 rounded-full hover:bg-border-custom transition-all border border-border-custom shadow-sm">
-                        {currentUser.photoURL ? (
-                            <img src={currentUser.photoURL} alt="User Profile" className="h-8 w-8 rounded-full" />
-                        ) : (
-                            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-                                {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+                    <Link
+                        to="/profile"
+                        className={`flex items-center gap-2 transition-all relative group`}
+                    >
+                        <div className={`rounded-full p-[2px] transition-all duration-300 ${isActiveProfile
+                            ? "bg-primary-gradient shadow-[0_0_15px_rgba(52,193,227,0.6)]"
+                            : "bg-transparent group-hover:bg-primary/20"
+                            }`}>
+                            <div className="bg-surface p-0.5 rounded-full shadow-sm">
+                                {currentUser.photoURL ? (
+                                    <img src={currentUser.photoURL} alt="User Profile" className="h-8 w-8 rounded-full" />
+                                ) : (
+                                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm">
+                                        {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </Link>
                 ) : (
                     <Link
                         to="/login"
-                        className="bg-primary-gradient px-6 py-2 rounded-[6px] text-white font-semibold shadow-subtle hover:brightness-110 transition-all"
+                        className="bg-primary-gradient px-6 py-2 rounded-[6px] text-white font-semibold shadow-subtle hover:brightness-110 transition-all font-sans"
                     >
                         Login
                     </Link>
