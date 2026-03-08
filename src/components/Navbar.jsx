@@ -25,7 +25,7 @@ const Navbar = () => {
     const isActiveProfile = location.pathname === '/profile';
 
     return (
-        <nav className="sticky top-0 z-50 w-full bg-surface border-b border-border-custom px-6 py-3 flex items-center justify-between shadow-sm">
+        <nav className="sticky top-0 z-[1001] w-full bg-surface border-b border-border-custom px-6 py-3 flex items-center justify-between shadow-sm">
             {/* Left side: Logo */}
             <Link to="/" className="flex items-center gap-2">
                 <img src={logo} alt="AU-Connect Logo" className="h-10 w-auto" />
