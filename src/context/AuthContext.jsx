@@ -1,46 +1,62 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from 'react';
 import {
     signInWithPopup,
     GoogleAuthProvider,
     onAuthStateChanged,
     signOut
-} from "firebase/auth";
-import { auth } from "../firebase";
+} from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
-// Custom hook for easy access to Auth
-export function useAuth() {
-    return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
+    const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Google Sign In Logic
     const login = () => {
         const provider = new GoogleAuthProvider();
         return signInWithPopup(auth, provider);
     };
 
-    // Logout Logic
-    const logout = () => {
-        return signOut(auth);
-    };
+    const logout = () => signOut(auth);
 
-    // Track user login state
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        let unsubscribeFirestore = () => { };
+
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
-            setLoading(false);
+
+            if (user) {
+                // Real-time listener for user data in Firestore
+                const userDocRef = doc(db, "users", user.email);
+                unsubscribeFirestore = onSnapshot(userDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        setUserData(docSnap.data());
+                    } else {
+                        setUserData(null);
+                    }
+                    setLoading(false);
+                });
+            } else {
+                setUserData(null);
+                setLoading(false);
+            }
         });
 
-        return unsubscribe;
+        return () => {
+            unsubscribeAuth();
+            unsubscribeFirestore();
+        };
     }, []);
 
     const value = {
         currentUser,
+        userData,
+        isOnboarded: !!userData,
         login,
         logout,
         loading
@@ -51,4 +67,4 @@ export function AuthProvider({ children }) {
             {!loading && children}
         </AuthContext.Provider>
     );
-}
+};
