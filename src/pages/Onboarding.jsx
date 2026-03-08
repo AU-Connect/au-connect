@@ -161,13 +161,14 @@ const Onboarding = () => {
                             <div className="space-y-2 text-left">
                                 <Label className="text-slate-700 font-semibold ml-1">Degree</Label>
                                 <Select
+                                    key={formData.degree}
                                     value={formData.degree}
                                     onValueChange={(val) => setFormData({ ...formData, degree: val })}
                                 >
                                     <SelectTrigger className="h-12 border-slate-200 rounded-lg">
                                         <SelectValue placeholder="Select Degree" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent position="popper" side="bottom">
                                         <SelectItem value="B.Tech">B.Tech</SelectItem>
                                         <SelectItem value="M.Tech">M.Tech</SelectItem>
                                     </SelectContent>
@@ -177,13 +178,14 @@ const Onboarding = () => {
                             <div className="space-y-2 text-left">
                                 <Label className="text-slate-700 font-semibold ml-1">Year of Study</Label>
                                 <Select
+                                    key={formData.year}
                                     value={formData.year}
                                     onValueChange={(val) => setFormData({ ...formData, year: val })}
                                 >
                                     <SelectTrigger className="h-12 border-slate-200 rounded-lg">
                                         <SelectValue placeholder="Select Year" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent position="popper" side="bottom">
                                         <SelectItem value="1st">1st Year</SelectItem>
                                         <SelectItem value="2nd">2nd Year</SelectItem>
                                         <SelectItem value="3rd">3rd Year</SelectItem>
@@ -196,13 +198,14 @@ const Onboarding = () => {
                         <div className="space-y-2 text-left">
                             <Label className="text-slate-700 font-semibold ml-1">Branch / Department</Label>
                             <Select
+                                key={formData.department}
                                 value={formData.department}
                                 onValueChange={(val) => setFormData({ ...formData, department: val })}
                             >
                                 <SelectTrigger className="h-12 border-slate-200 rounded-lg">
                                     <SelectValue placeholder="Choose your department" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent position="popper" side="bottom" className="max-h-[60vh]">
                                     {departments.map((dept) => (
                                         <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                                     ))}
