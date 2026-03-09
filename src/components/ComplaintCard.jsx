@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const ComplaintCard = ({ issue, index }) => {
+const ComplaintCard = ({ issue, index, onClick }) => {
     const { currentUser, userData } = useAuth();
     const [hasUpvoted, setHasUpvoted] = useState(false);
     const [isVoting, setIsVoting] = useState(false);
@@ -25,7 +25,8 @@ const ComplaintCard = ({ issue, index }) => {
         }
     }, [issue.id, currentUser]);
 
-    const handleUpvote = async () => {
+    const handleUpvote = async (e) => {
+        e.stopPropagation();
         if (!canUpvote || isVoting || !issue.id) return;
 
         setIsVoting(true);
@@ -68,7 +69,8 @@ const ComplaintCard = ({ issue, index }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, delay: index * 0.1 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/50 flex flex-col h-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300"
+            onClick={onClick}
+            className="bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/50 flex flex-col h-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer"
         >
             <div className="h-48 w-full bg-slate-100 relative shrink-0">
                 <img
