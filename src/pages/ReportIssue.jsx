@@ -13,10 +13,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, MapPin, Info } from "lucide-react";
+import { AlertCircle, MapPin, Info, Camera } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import ImageUpload from '../components/ImageUpload';
 
 // Fix for default marker icons in Leaflet with React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -58,6 +59,7 @@ const ReportIssue = () => {
     });
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [mapError, setMapError] = useState(false);
+    const [imageUrl, setImageUrl] = useState("");
     const [error, setError] = useState("");
 
     const isGeneralOffice = formData.department === "GENERAL/PRINCIPAL OFFICE DEPARTMENT";
@@ -67,20 +69,29 @@ const ReportIssue = () => {
         setError("");
         setMapError(false);
 
+        const scrollToError = () => {
+            setTimeout(() => {
+                document.getElementById('submit-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        };
+
         // Required fields check: Title, Dept, Description, Manual Location
         if (!formData.title.trim() || !formData.department || !formData.description.trim() || !formData.manualLocation.trim()) {
             setError("All fields (Title, Dept, Description, Specific Area) are mandatory. Please fill in all the details.");
+            scrollToError();
             return;
         }
 
         // Length checks for Title and Specific Area
         if (formData.title.trim().length < 3) {
             setError("Issue Title must be at least 3 characters long.");
+            scrollToError();
             return;
         }
 
         if (formData.manualLocation.trim().length < 3) {
             setError("Specific Area must be at least 3 characters long.");
+            scrollToError();
             return;
         }
 
@@ -88,6 +99,14 @@ const ReportIssue = () => {
         const wordCount = formData.description.trim().split(/\s+/).filter(word => word.length > 0).length;
         if (wordCount < 5) {
             setError("Description must contain at least five words. Please provide more detail for our team.");
+            scrollToError();
+            return;
+        }
+
+        // Image Upload check
+        if (!imageUrl) {
+            setError("Please upload a photo of the issue. A visual report helps our team respond faster.");
+            scrollToError();
             return;
         }
 
@@ -102,7 +121,8 @@ const ReportIssue = () => {
 
         console.log("Form validated and ready for submission:", {
             ...formData,
-            location: selectedLocation
+            location: selectedLocation,
+            image: imageUrl
         });
 
         // Final submission logic will go here
@@ -322,7 +342,19 @@ const ReportIssue = () => {
                             />
                         </div>
 
-                        <div className="pt-8 mb-4 border-t border-slate-50 relative">
+                        {/* Image Upload Section */}
+                        <div className="space-y-3">
+                            <Label className="text-lg font-semibold text-slate-700 ml-1 flex items-center gap-2">
+                                <Camera className="text-primary" size={20} />
+                                Proof of Issue
+                            </Label>
+                            <ImageUpload onUploadComplete={(url) => {
+                                setImageUrl(url);
+                                setError(""); // Clear error when image is uploaded
+                            }} />
+                        </div>
+
+                        <div id="submit-section" className="pt-8 mb-4 border-t border-slate-50 relative">
                             {error && (
                                 <div className="bg-red-50 text-red-600 p-3 mb-6 rounded-lg text-sm font-medium border border-red-100 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
                                     <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
