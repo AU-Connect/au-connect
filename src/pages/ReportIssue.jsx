@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Background from '../components/Background';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,11 +13,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, MapPin, Info, Camera } from "lucide-react";
+import { AlertCircle, MapPin, Info, Camera, Sparkles, Loader2 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ImageUpload from '../components/ImageUpload';
+import { classifyComplaint } from '../aiService';
 
 // Fix for default marker icons in Leaflet with React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -61,6 +62,34 @@ const ReportIssue = () => {
     const [mapError, setMapError] = useState(false);
     const [imageUrl, setImageUrl] = useState("");
     const [error, setError] = useState("");
+    const [isAiClassifying, setIsAiClassifying] = useState(false);
+
+    // Watch description: If user starts editing an already categorized description, 
+    // we could reset it, but the re-trigger on blur logic is handled by handleAiClassification.
+    useEffect(() => {
+        if (formData.description.length < 5 && formData.category) {
+            setFormData(prev => ({ ...prev, category: '' }));
+        }
+    }, [formData.description]);
+
+    const handleAiClassification = async () => {
+        // Trigger only if description is substantial
+        if (formData.description.trim().length > 10) {
+            setIsAiClassifying(true);
+            try {
+                const category = await classifyComplaint(formData.description);
+                if (category) {
+                    // Ensure the category matches the case in our dropdown options (e.g., "Electrical")
+                    const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase().trim();
+                    setFormData(prev => ({ ...prev, category: normalizedCategory }));
+                }
+            } catch (err) {
+                console.error("AI Categorization failed:", err);
+            } finally {
+                setIsAiClassifying(false);
+            }
+        }
+    };
 
     const isGeneralOffice = formData.department === "GENERAL/PRINCIPAL OFFICE DEPARTMENT";
 
@@ -308,12 +337,20 @@ const ReportIssue = () => {
                             </div>
 
                             <div className="space-y-3">
-                                <Label htmlFor="category" className="text-lg font-semibold text-slate-700 ml-1">
-                                    Issue Category
-                                </Label>
+                                <div className="flex items-center justify-between px-1">
+                                    <Label htmlFor="category" className="text-lg font-semibold text-slate-700">
+                                        Issue Category
+                                    </Label>
+                                    {isAiClassifying && (
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#34C1E31A] border border-[#34C1E333] animate-pulse">
+                                            <Loader2 className="animate-spin text-[#34C1E3]" size={12} />
+                                            <span className="text-[10px] font-extrabold text-[#34C1E3] uppercase tracking-tighter">AI is analyzing issue...</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <Select disabled value={formData.category}>
-                                    <SelectTrigger className="h-12 text-sm border-slate-200 rounded-xl px-5 bg-slate-50/10 shadow-sm cursor-not-allowed opacity-70">
-                                        <SelectValue placeholder="AI Categorizing..." />
+                                    <SelectTrigger className={`h-12 text-sm border-slate-200 rounded-xl px-5 shadow-sm transition-all ${isAiClassifying ? "bg-[#34C1E308] border-[#34C1E333]" : "bg-slate-50/10 cursor-not-allowed opacity-70"}`}>
+                                        <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {['Electrical', 'Civil', 'Internet', 'Sanitation', 'Academic'].map(cat => (
@@ -322,8 +359,12 @@ const ReportIssue = () => {
                                     </SelectContent>
                                 </Select>
                                 <p className="text-[11px] text-slate-400 font-medium ml-1 flex items-center gap-1.5 italic">
-                                    <Info size={12} className="text-primary/60" />
-                                    AI will automatically categorize your issue based on the description.
+                                    <Sparkles size={12} className={formData.category ? "text-[#34C1E3]" : "text-primary/60"} />
+                                    {formData.category ? (
+                                        <span className="text-[#34C1E3] font-bold">Smart Categorization Complete</span>
+                                    ) : (
+                                        "AI will automatically categorize your issue based on the description."
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -338,6 +379,7 @@ const ReportIssue = () => {
                                 placeholder="Provide as much detail as possible. Where is it? When did you notice it? How severe is it?"
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                onBlur={handleAiClassification}
                                 className="min-h-[160px] text-base border-slate-200 focus:ring-primary rounded-xl px-5 py-4 bg-slate-50/50 leading-relaxed resize-none shadow-sm placeholder:text-slate-400/60"
                             />
                         </div>
