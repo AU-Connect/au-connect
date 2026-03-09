@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import Background from '../components/Background';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, MapPin, Info, Camera, Sparkles, Loader2 } from "lucide-react";
+import { AlertCircle, MapPin, Info, Camera, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -50,7 +53,7 @@ const departments = [
 ];
 
 const ReportIssue = () => {
-    const { userData } = useAuth();
+    const { userData, currentUser } = useAuth();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -63,6 +66,9 @@ const ReportIssue = () => {
     const [imageUrl, setImageUrl] = useState("");
     const [error, setError] = useState("");
     const [isAiClassifying, setIsAiClassifying] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
+    const navigate = useNavigate();
 
     // Watch description: If user starts editing an already categorized description, 
     // we could reset it, but the re-trigger on blur logic is handled by handleAiClassification.
@@ -93,7 +99,7 @@ const ReportIssue = () => {
 
     const isGeneralOffice = formData.department === "GENERAL/PRINCIPAL OFFICE DEPARTMENT";
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
         setMapError(false);
@@ -104,14 +110,13 @@ const ReportIssue = () => {
             }, 100);
         };
 
-        // Required fields check: Title, Dept, Description, Manual Location
+        // ...existing validation checks
         if (!formData.title.trim() || !formData.department || !formData.description.trim() || !formData.manualLocation.trim()) {
             setError("All fields (Title, Dept, Description, Specific Area) are mandatory. Please fill in all the details.");
             scrollToError();
             return;
         }
 
-        // Length checks for Title and Specific Area
         if (formData.title.trim().length < 3) {
             setError("Issue Title must be at least 3 characters long.");
             scrollToError();
@@ -124,7 +129,6 @@ const ReportIssue = () => {
             return;
         }
 
-        // Word count check for description
         const wordCount = formData.description.trim().split(/\s+/).filter(word => word.length > 0).length;
         if (wordCount < 5) {
             setError("Description must contain at least five words. Please provide more detail for our team.");
@@ -132,14 +136,12 @@ const ReportIssue = () => {
             return;
         }
 
-        // Image Upload check
         if (!imageUrl) {
             setError("Please upload a photo of the issue. A visual report helps our team respond faster.");
             scrollToError();
             return;
         }
 
-        // Map location check specifically for General/Principal Office
         if (isGeneralOffice && !selectedLocation) {
             setMapError(true);
             setError("For General/Principal Office issues, selecting a location on the map is compulsory.");
@@ -148,14 +150,43 @@ const ReportIssue = () => {
             return;
         }
 
-        console.log("Form validated and ready for submission:", {
-            ...formData,
-            location: selectedLocation,
-            image: imageUrl
-        });
+        setIsSubmitting(true);
+        try {
+            const issueData = {
+                title: formData.title.trim(),
+                description: formData.description.trim(),
+                imageUrl: imageUrl, // from Cloudinary state
+                location: {
+                    manualAddress: formData.manualLocation.trim(),
+                    coordinates: selectedLocation ? {
+                        lat: selectedLocation.lat,
+                        lng: selectedLocation.lng
+                    } : null
+                },
+                category: formData.category || 'Uncategorized', // AI generated
+                department: formData.department, // form selected
+                status: 'Reported',
+                userId: currentUser.uid, // logged-in student UID
+                timestamp: serverTimestamp(),
+                upvotes: 0
+            };
 
-        // Final submission logic will go here
-        alert("Success! Form state is valid for Week 2.");
+            await addDoc(collection(db, "issues"), issueData);
+            console.log("Submitting Issue Data:", issueData);
+
+            // Show Success State & Redirect
+            setIsSuccess(true);
+            setTimeout(() => {
+                navigate('/feed');
+            }, 4000);
+
+        } catch (err) {
+            console.error("Error submitting document to Firebase:", err);
+            setError("Failed to submit report. Please try again.");
+            scrollToError();
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const isAllowedDept = (dept) => {
@@ -397,17 +428,35 @@ const ReportIssue = () => {
                         </div>
 
                         <div id="submit-section" className="pt-8 mb-4 border-t border-slate-50 relative">
-                            {error && (
+                            {error && !isSuccess && (
                                 <div className="bg-red-50 text-red-600 p-3 mb-6 rounded-lg text-sm font-medium border border-red-100 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
                                     <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
                                     {error}
                                 </div>
                             )}
+
+                            {isSuccess && (
+                                <div className="bg-green-50 text-green-600 p-3 mb-6 rounded-lg text-sm font-medium border border-green-100 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+                                    <CheckCircle2 size={16} />
+                                    Issue Reported Successfully! Redirecting...
+                                </div>
+                            )}
+
                             <Button
                                 type="submit"
-                                className="w-full md:w-auto px-12 h-14 bg-primary-gradient text-white text-lg font-bold rounded-2xl shadow-xl hover:brightness-110 transition-all duration-300 active:scale-[0.98] shadow-primary/20"
+                                disabled={isSubmitting || isSuccess}
+                                className={`w-full md:w-auto px-12 h-14 bg-primary-gradient text-white text-lg font-bold rounded-2xl shadow-xl hover:brightness-110 transition-all duration-300 active:scale-[0.98] shadow-primary/20 ${(isSubmitting || isSuccess) ? "opacity-70 cursor-not-allowed" : ""}`}
                             >
-                                Submit Report
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="mr-2 animate-spin" size={20} />
+                                        Submitting...
+                                    </>
+                                ) : isSuccess ? (
+                                    "Redirecting..."
+                                ) : (
+                                    "Submit Report"
+                                )}
                             </Button>
                         </div>
                     </form>
