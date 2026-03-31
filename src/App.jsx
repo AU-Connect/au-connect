@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import Onboarding from './pages/Onboarding';
 import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
@@ -42,9 +43,9 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <AdminDashboard />
-              </ProtectedRoute>
+              </AdminRoute>
             } />
           </Routes>
         </main>

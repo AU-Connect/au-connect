@@ -12,8 +12,8 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_KEY);
  */
 export const classifyComplaint = async (description) => {
     try {
-        // Use the gemini-1.5-flash model for fast and efficient classification
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Use the gemini-2.5-flash model for fast and efficient classification
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
             You are a campus administrator for Andhra University. 

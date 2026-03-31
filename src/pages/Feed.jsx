@@ -217,7 +217,7 @@ const Feed = () => {
                                                 {selectedIssue.department === 'GENERAL/PRINCIPAL OFFICE DEPARTMENT' && (
                                                     <>
                                                         <span className="text-slate-300">•</span>
-                                                        <span><span className="font-medium text-slate-600">Dept:</span> {userData?.department}</span>
+                                                        <span><span className="font-medium text-slate-600">Dept:</span> {selectedIssue.reporter.department}</span>
                                                     </>
                                                 )}
                                             </p>

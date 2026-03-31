@@ -15,12 +15,14 @@ const Navbar = () => {
     const { currentUser, userData, isOnboarded, logout } = useAuth();
     const location = useLocation();
 
-    const navLinks = [
-        { name: 'Home', path: '/' },
-        { name: 'Feed', path: '/feed' },
-        { name: 'Report Issue', path: '/report' },
-        { name: 'Unibot', path: '/unibot' },
-    ];
+    const navLinks = userData?.role === 'admin'
+        ? [{ name: 'Dashboard', path: '/admin' }]
+        : [
+            { name: 'Home', path: '/' },
+            { name: 'Feed', path: '/feed' },
+            { name: 'Report Issue', path: '/report' },
+            { name: 'Unibot', path: '/unibot' },
+        ];
 
     const isActiveProfile = location.pathname === '/profile';
 

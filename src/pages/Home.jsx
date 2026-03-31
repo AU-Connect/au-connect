@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Zap, Clock, MessageSquare, BarChart3, Bell } from 'lucide-react';
@@ -7,7 +7,14 @@ import Background from '../components/Background';
 import FeatureCard from '../components/FeatureCard';
 
 const Home = () => {
-    const { currentUser } = useAuth();
+    const { currentUser, userData } = useAuth();
+    const navigate = useNavigate();
+
+    React.useEffect(() => {
+        if (userData?.role === 'admin') {
+            navigate('/admin');
+        }
+    }, [userData, navigate]);
 
     const features = useMemo(() => [
         {

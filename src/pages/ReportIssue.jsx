@@ -68,30 +68,26 @@ const ReportIssue = () => {
     const [isAiClassifying, setIsAiClassifying] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
-    const [lastClassifiedDescription, setLastClassifiedDescription] = useState("");
     const navigate = useNavigate();
 
     // Watch description: If user starts editing an already categorized description, 
     // we could reset it, but the re-trigger on blur logic is handled by handleAiClassification.
     useEffect(() => {
-        if (formData.description.length < 5) {
-            if (formData.category) setFormData(prev => ({ ...prev, category: '' }));
-            if (lastClassifiedDescription) setLastClassifiedDescription("");
+        if (formData.description.length < 5 && formData.category) {
+            setFormData(prev => ({ ...prev, category: '' }));
         }
     }, [formData.description]);
 
     const handleAiClassification = async () => {
-        const currentDesc = formData.description.trim();
-        // Trigger only if description is substantial AND has changed since last classification
-        if (currentDesc.length > 10 && currentDesc !== lastClassifiedDescription) {
+        // Trigger only if description is substantial
+        if (formData.description.trim().length > 10) {
             setIsAiClassifying(true);
             try {
-                const category = await classifyComplaint(currentDesc);
+                const category = await classifyComplaint(formData.description);
                 if (category) {
                     // Ensure the category matches the case in our dropdown options (e.g., "Electrical")
                     const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase().trim();
                     setFormData(prev => ({ ...prev, category: normalizedCategory }));
-                    setLastClassifiedDescription(currentDesc);
                 }
             } catch (err) {
                 console.error("AI Categorization failed:", err);
@@ -171,11 +167,14 @@ const ReportIssue = () => {
                 department: formData.department, // form selected
                 status: 'Reported',
                 userId: currentUser.uid, // logged-in student UID
+                userEmail: currentUser.email, // helpful for index lookups later
                 reporter: {
-                    name: userData?.displayName || 'Student',
-                    rollNumber: userData?.rollNumber || 'N/A',
-                    degree: userData?.degree || 'N/A',
-                    admissionYear: userData?.admissionYear || 'N/A'
+                    name: userData.name || currentUser.displayName || 'Student',
+                    rollNumber: userData.rollNumber || 'N/A',
+                    degree: userData.degree || 'N/A',
+                    admissionYear: userData.year || 'N/A',
+                    department: userData.department || 'N/A',
+                    email: currentUser.email
                 },
                 timestamp: serverTimestamp(),
                 upvotes: 0

@@ -9,8 +9,16 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const Login = () => {
-    const { login } = useAuth();
+    const { login, userData } = useAuth();
     const navigate = useNavigate();
+
+    React.useEffect(() => {
+        if (userData?.role === 'admin') {
+            navigate('/admin');
+        } else if (userData?.role === 'student') {
+            navigate('/feed');
+        }
+    }, [userData, navigate]);
 
     const handleLogin = async () => {
         try {
