@@ -9,7 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapPin } from 'lucide-react';
+import { MapPin, CheckCircle, Search, ListFilter, Filter, ArrowUpDown } from 'lucide-react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 // Fix for default marker icons in Leaflet with React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -26,6 +33,9 @@ const Feed = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [selectedIssue, setSelectedIssue] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
+    const [sortBy, setSortBy] = useState('latest');
 
     useEffect(() => {
         // Wait until user data is fully loaded
@@ -88,10 +98,23 @@ const Feed = () => {
     }
 
     const filteredIssues = issues.filter(issue => {
+        const matchesSearch = (issue.title && issue.title.toLowerCase().includes(searchQuery.toLowerCase())) || 
+                              (issue.id && issue.id.toLowerCase().includes(searchQuery.toLowerCase()));
+        
+        if (!matchesSearch) return false;
+        
+        const issueStatus = issue.status || 'Reported';
+        if (statusFilter !== 'All' && issueStatus !== statusFilter) return false;
+
         if (activeFilter === 'My Department') return issue.department === userData?.department;
         if (activeFilter === 'General Department') return issue.department === 'GENERAL/PRINCIPAL OFFICE DEPARTMENT';
         if (activeFilter === 'My Reported Issues') return issue.userId === currentUser.uid;
         return true;
+    }).sort((a, b) => {
+        if (sortBy === 'latest') return b.timestamp?.seconds - a.timestamp?.seconds;
+        if (sortBy === 'oldest') return a.timestamp?.seconds - b.timestamp?.seconds;
+        if (sortBy === 'upvotes') return (b.upvotes || 0) - (a.upvotes || 0);
+        return 0;
     });
 
     return (
@@ -99,29 +122,100 @@ const Feed = () => {
             <Background />
 
             <div className="max-w-7xl mx-auto w-full relative z-10">
-                <div className="mb-8 pt-4">
-                    <div className="inline-block">
+                <div className="mb-8 pt-4 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="inline-block shrink-0">
                         <h1 className="text-3xl md:text-4xl font-black text-[#1E293B] tracking-tight">
                             Campus <span className="text-transparent bg-clip-text bg-primary-gradient">Feed</span>
                         </h1>
                         <div className="h-1 w-1/3 bg-primary-gradient rounded-full mt-2"></div>
                     </div>
+
+                    {/* Category Tabs moved beside the title for space efficiency */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {['My Department', 'General Department', 'My Reported Issues'].map((filterTab) => (
+                            <button
+                                key={filterTab}
+                                onClick={() => {
+                                    setActiveFilter(filterTab);
+                                    setSearchQuery('');
+                                    setStatusFilter('All');
+                                    setSortBy('latest');
+                                }}
+                                className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${activeFilter === filterTab
+                                    ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
+                                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60 hover:border-slate-300'
+                                    }`}
+                            >
+                                {filterTab}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Filter Bar */}
-                <div className="flex flex-wrap items-center gap-3 mb-8">
-                    {['My Department', 'General Department', 'My Reported Issues'].map((filterTab) => (
-                        <button
-                            key={filterTab}
-                            onClick={() => setActiveFilter(filterTab)}
-                            className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${activeFilter === filterTab
-                                ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
-                                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60 hover:border-slate-300'
-                                }`}
-                        >
-                            {filterTab}
-                        </button>
-                    ))}
+                {/* Search, Status, and Sort Integrated Toolbar */}
+                <div className="flex flex-wrap items-center gap-4 mb-8">
+                    {/* Search Bar */}
+                    <div className="relative group w-full sm:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Search ticket ID or title..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-full transition-all shadow-sm"
+                        />
+                    </div>
+
+                    {/* Filters & Sort */}
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+                        {/* Status Filter */}
+                        <div className="flex items-center bg-white pr-2 pl-1 py-1 rounded-full border border-slate-200 shrink-0 shadow-sm transition-all hover:border-slate-300">
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger className="w-[160px] h-9 text-xs font-bold border-none bg-transparent focus:ring-0 shadow-none px-2">
+                                    <div className="flex items-center gap-2 w-full truncate">
+                                        <div className="p-1.5 bg-blue-50 text-blue-500 rounded-lg shrink-0">
+                                            <Filter size={14} />
+                                        </div>
+                                        <div className="flex flex-col items-start gap-0 flex-grow text-left mt-0.5 truncate overflow-hidden">
+                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Filter</span>
+                                            <SelectValue placeholder="All" className="truncate" />
+                                        </div>
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={5} className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
+                                    <SelectItem value="All" className="text-xs font-bold py-2 focus:bg-primary/5">All Statuses</SelectItem>
+                                    <SelectItem value="Reported" className="text-xs font-bold py-2 focus:bg-primary/5">Reported</SelectItem>
+                                    <SelectItem value="Viewed" className="text-xs font-bold py-2 focus:bg-primary/5">Viewed</SelectItem>
+                                    <SelectItem value="InProgress" className="text-xs font-bold py-2 focus:bg-primary/5">In Progress</SelectItem>
+                                    <SelectItem value="OnHold" className="text-xs font-bold py-2 focus:bg-primary/5">On Hold</SelectItem>
+                                    <SelectItem value="Resolved" className="text-xs font-bold py-2 focus:bg-primary/5">Resolved</SelectItem>
+                                    <SelectItem value="Rejected" className="text-xs font-bold py-2 focus:bg-primary/5">Rejected</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Sort Toggle */}
+                        <div className="flex items-center bg-white pr-2 pl-1 py-1 rounded-full border border-slate-200 shrink-0 shadow-sm transition-all hover:border-slate-300">
+                            <Select value={sortBy} onValueChange={setSortBy}>
+                                <SelectTrigger className="w-[160px] h-9 text-xs font-bold border-none bg-transparent focus:ring-0 shadow-none px-2">
+                                    <div className="flex items-center gap-2 w-full truncate">
+                                        <div className="p-1.5 bg-purple-50 text-purple-500 rounded-lg shrink-0">
+                                            <ArrowUpDown size={14} />
+                                        </div>
+                                        <div className="flex flex-col items-start gap-0 flex-grow text-left mt-0.5 truncate overflow-hidden">
+                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Sort By</span>
+                                            <SelectValue placeholder="Sort" className="truncate" />
+                                        </div>
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={5} className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
+                                    <SelectItem value="latest" className="text-xs font-bold py-2 focus:bg-primary/5">Latest First</SelectItem>
+                                    <SelectItem value="oldest" className="text-xs font-bold py-2 focus:bg-primary/5">Oldest First</SelectItem>
+                                    <SelectItem value="upvotes" className="text-xs font-bold py-2 focus:bg-primary/5">Most Upvoted</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Complaint Cards Grid */}
@@ -241,30 +335,46 @@ const Feed = () => {
                                 <p className="text-sm font-medium text-slate-700 mb-3">
                                     {selectedIssue?.location?.manualAddress || selectedIssue?.department}
                                 </p>
-                                {selectedIssue?.location?.coordinates && (
+                                {(selectedIssue?.location?.coordinates || selectedIssue?.coordinates) && (
                                     <div className="space-y-2">
                                         <div className="h-40 md:h-56 w-full rounded-xl overflow-hidden border border-slate-200 z-0 relative shadow-inner">
                                             <MapContainer
                                                 key={selectedIssue.id}
-                                                center={[selectedIssue.location.coordinates.lat, selectedIssue.location.coordinates.lng]}
+                                                center={[
+                                                    selectedIssue?.location?.coordinates?.lat || selectedIssue?.coordinates?.lat, 
+                                                    selectedIssue?.location?.coordinates?.lng || selectedIssue?.coordinates?.lng
+                                                ]}
                                                 zoom={16}
-                                                scrollWheelZoom={false}
-                                                dragging={false}
-                                                zoomControl={false}
-                                                doubleClickZoom={false}
-                                                className="h-full w-full z-0"
+                                                style={{ height: "100%", width: "100%", zIndex: 0 }}
                                             >
                                                 <TileLayer
                                                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                                    attribution='&copy; OpenStreetMap'
                                                 />
-                                                <Marker position={[selectedIssue.location.coordinates.lat, selectedIssue.location.coordinates.lng]} />
+                                                <Marker position={[
+                                                    selectedIssue?.location?.coordinates?.lat || selectedIssue?.coordinates?.lat, 
+                                                    selectedIssue?.location?.coordinates?.lng || selectedIssue?.coordinates?.lng
+                                                ]} />
                                             </MapContainer>
                                         </div>
-                                        <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono tracking-wider bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 w-fit">
-                                            <span className="font-semibold text-slate-500">LAT:</span> {selectedIssue.location.coordinates.lat.toFixed(6)}
-                                            <span className="mx-1 text-slate-300">|</span>
-                                            <span className="font-semibold text-slate-500">LNG:</span> {selectedIssue.location.coordinates.lng.toFixed(6)}
+                                        {/* Coordinates Display Block */}
+                                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 flex-wrap gap-2 text-xs text-slate-500 font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold uppercase tracking-wider text-[12px] text-slate-600">Coordinates:</span>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Lat:</span> 
+                                                    <span className="text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-sm">
+                                                        {(selectedIssue?.location?.coordinates?.lat || selectedIssue?.coordinates?.lat).toFixed(6)}°
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Lng:</span> 
+                                                    <span className="text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-sm">
+                                                        {(selectedIssue?.location?.coordinates?.lng || selectedIssue?.coordinates?.lng).toFixed(6)}°
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -272,22 +382,24 @@ const Feed = () => {
 
                             <div className="mt-8 border-t border-slate-100 pt-6 flex-grow">
                                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Tracking Timeline</h4>
-                                <StatusStepper
-                                    currentStatus={selectedIssue?.status}
-                                    adminRemarks={selectedIssue?.adminRemarks}
-                                    timestamp={selectedIssue?.timestamp}
-                                />
+                                <StatusStepper issue={selectedIssue} />
                             </div>
 
-                            {/* Bottom: Resolved Image Proof */}
-                            {selectedIssue?.status === 'Resolved' && selectedIssue?.afterImageUrl && (
-                                <div className="mt-6 border-t border-slate-100 pt-6">
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Resolution Proof</h4>
-                                    <div className="w-24 h-24 rounded-xl overflow-hidden border border-slate-200 shadow-sm relative group cursor-pointer">
-                                        <img
-                                            src={selectedIssue.afterImageUrl}
-                                            alt="Resolved state"
-                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            {/* Documented Proof Section */}
+                            {selectedIssue?.afterImageUrl && (
+                                <div className="mt-8 border-t border-slate-100 pt-6">
+                                    <h4 className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4">
+                                        <CheckCircle size={14} className="text-emerald-500" /> Documented Proof
+                                    </h4>
+                                    <div className="h-56 md:h-72 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative shadow-inner flex items-center justify-center">
+                                        <div
+                                            className="absolute inset-0 bg-cover bg-center opacity-40 blur-2xl scale-125 transition-all"
+                                            style={{ backgroundImage: `url(${selectedIssue.afterImageUrl})` }}
+                                        ></div>
+                                        <img 
+                                            src={selectedIssue.afterImageUrl} 
+                                            alt="Proof Output" 
+                                            className="w-full h-full object-contain relative z-10 p-2"
                                         />
                                     </div>
                                 </div>

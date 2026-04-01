@@ -28,10 +28,27 @@ const Navbar = () => {
 
     return (
         <nav className="sticky top-0 z-[1001] w-full bg-surface border-b border-border-custom px-6 py-3 flex items-center justify-between shadow-sm">
-            {/* Left side: Logo */}
-            <Link to="/" className="flex items-center gap-2">
-                <img src={logo} alt="AU-Connect Logo" className="h-10 w-auto" />
-            </Link>
+            {/* Left side: Logo & Admin Context */}
+            <div className="flexItems-center flex items-center gap-4 lg:gap-6">
+                <Link to="/" className="flex items-center gap-2 shrink-0">
+                    <img src={logo} alt="AU-Connect Logo" className="h-10 w-auto" />
+                </Link>
+
+                {/* Highly Integrated Admin Overview */}
+                {userData?.role === 'admin' && userData?.department_in_charge && (
+                    <div className="hidden md:flex items-center gap-3 pl-4 lg:pl-6 border-l-2 border-slate-100">
+                        <span className="text-primary text-[10px] font-black px-2.5 py-1 bg-primary/10 rounded-md uppercase tracking-widest leading-none">
+                            Admin Panel
+                        </span>
+                        <h2 className="text-base lg:text-lg font-black text-slate-800 tracking-tight flex items-center gap-1.5 leading-tight">
+                            <span className="text-transparent bg-clip-text bg-primary-gradient py-0.5">
+                                {userData.department_in_charge === "General Admin" ? "General" : userData.department_in_charge.replace(/\s*[Dd]epartment\s*$/i, '').trim()}
+                            </span>
+                            <span>Department</span>
+                        </h2>
+                    </div>
+                )}
+            </div>
 
             {/* Right side: Navigation Links */}
             <div className="flex items-center gap-8">

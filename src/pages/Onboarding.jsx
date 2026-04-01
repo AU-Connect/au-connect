@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { X } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -130,19 +130,27 @@ const Onboarding = () => {
 
                 <CardContent className="px-10 pb-12">
                     <form onSubmit={handleSave} className="space-y-6 mt-6">
-                        {/* Name field: Only shown in Edit Profile mode */}
-                        {isOnboarded && (
-                            <div className="space-y-2 text-left animate-in fade-in slide-in-from-top-2 duration-300">
-                                <Label htmlFor="name" className="text-slate-700 font-semibold ml-1">Full Name</Label>
-                                <Input
-                                    id="name"
-                                    placeholder="Enter your name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="h-12 border-slate-200 focus:ring-primary focus:border-primary rounded-lg text-lg"
-                                />
-                            </div>
-                        )}
+                        {/* Name field: Editable during Onboarding, absolutely locked after */}
+                        <div className="space-y-1.5 text-left animate-in fade-in slide-in-from-top-2 duration-300">
+                            <Label htmlFor="name" className="text-slate-700 font-semibold ml-1">Full Name</Label>
+                            <Input
+                                id="name"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                disabled={isOnboarded}
+                                className={`h-12 border-slate-200 rounded-lg text-lg font-medium ${isOnboarded ? 'bg-slate-50 text-slate-500 cursor-not-allowed opacity-100 shadow-inner' : 'focus:ring-primary focus:border-primary'}`}
+                                placeholder="Enter your full real name"
+                            />
+                            {!isOnboarded ? (
+                                <p className="text-[10.5px] font-bold text-amber-600 ml-1 mt-1 flex items-center gap-1">
+                                    <AlertCircle size={10} /> This will be your permanent display name and cannot be changed.
+                                </p>
+                            ) : (
+                                <p className="text-[10px] font-semibold text-slate-400 ml-1 mt-1 flex items-center gap-1">
+                                    <AlertCircle size={10} /> Name is securely locked. Contact Admin to fix typos.
+                                </p>
+                            )}
+                        </div>
 
                         <div className="space-y-2 text-left">
                             <Label htmlFor="rollNumber" className="text-slate-700 font-semibold ml-1">Roll Number</Label>
@@ -195,14 +203,15 @@ const Onboarding = () => {
                             </div>
                         </div>
 
-                        <div className="space-y-2 text-left">
+                        <div className="space-y-1.5 text-left">
                             <Label className="text-slate-700 font-semibold ml-1">Branch / Department</Label>
                             <Select
                                 key={formData.department}
                                 value={formData.department}
                                 onValueChange={(val) => setFormData({ ...formData, department: val })}
+                                disabled={isOnboarded}
                             >
-                                <SelectTrigger className="h-12 border-slate-200 rounded-lg">
+                                <SelectTrigger className={`h-12 border-slate-200 rounded-lg ${isOnboarded ? 'bg-slate-50 text-slate-500 opacity-100 cursor-not-allowed shadow-inner' : ''}`}>
                                     <SelectValue placeholder="Choose your department" />
                                 </SelectTrigger>
                                 <SelectContent position="popper" side="bottom" className="max-h-[60vh]">
@@ -211,6 +220,15 @@ const Onboarding = () => {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {!isOnboarded ? (
+                                <p className="text-[10.5px] font-bold text-amber-600 ml-1 mt-1 flex items-center gap-1">
+                                    <AlertCircle size={10} /> Choose carefully! This cannot be changed in the future.
+                                </p>
+                            ) : (
+                                <p className="text-[10px] font-semibold text-slate-400 ml-1 mt-1 flex items-center gap-1">
+                                    <AlertCircle size={10} /> Department is locked securely to your account block scope.
+                                </p>
+                            )}
                         </div>
 
                         {error && (

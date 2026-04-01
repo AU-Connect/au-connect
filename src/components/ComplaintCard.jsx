@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Clock, ThumbsUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const ComplaintCard = ({ issue, index, onClick }) => {
@@ -16,14 +16,19 @@ const ComplaintCard = ({ issue, index, onClick }) => {
     const canUpvote = isGeneral || isSameDept;
 
     useEffect(() => {
-        // Prevent double voting using local storage for this user+issue pair
-        if (currentUser && issue.id) {
+        // Prevent double voting using Firestore native source-of-truth
+        if (currentUser && issue.upvotedBy && Array.isArray(issue.upvotedBy)) {
+            setHasUpvoted(issue.upvotedBy.includes(currentUser.uid));
+        } else if (currentUser && issue.id) {
+            // Fallback for legacy issues that only used local storage
             const upvoted = localStorage.getItem(`upvote_${issue.id}_${currentUser.uid}`);
             if (upvoted === 'true') {
                 setHasUpvoted(true);
+            } else {
+                setHasUpvoted(false);
             }
         }
-    }, [issue.id, currentUser]);
+    }, [issue.upvotedBy, issue.id, currentUser]);
 
     const handleUpvote = async (e) => {
         e.stopPropagation();
@@ -34,23 +39,22 @@ const ComplaintCard = ({ issue, index, onClick }) => {
             const issueRef = doc(db, 'issues', issue.id);
 
             if (hasUpvoted) {
-                // Undo upvote
+                // Undo upvote globally
                 await updateDoc(issueRef, {
-                    upvotes: increment(-1)
+                    upvotes: increment(-1),
+                    upvotedBy: arrayRemove(currentUser.uid)
                 });
                 setHasUpvoted(false);
                 if (currentUser) {
-                    localStorage.removeItem(`upvote_${issue.id}_${currentUser.uid}`);
+                    localStorage.removeItem(`upvote_${issue.id}_${currentUser.uid}`); // Clean up legacy state
                 }
             } else {
-                // Add upvote
+                // Add upvote globally
                 await updateDoc(issueRef, {
-                    upvotes: increment(1)
+                    upvotes: increment(1),
+                    upvotedBy: arrayUnion(currentUser.uid)
                 });
                 setHasUpvoted(true);
-                if (currentUser) {
-                    localStorage.setItem(`upvote_${issue.id}_${currentUser.uid}`, 'true');
-                }
             }
         } catch (error) {
             console.error("Failed to toggle upvote:", error);

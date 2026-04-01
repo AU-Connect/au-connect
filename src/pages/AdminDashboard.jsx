@@ -27,6 +27,8 @@ import {
     CheckCircle,
     Clock,
     AlertCircle,
+    PauseCircle,
+    XCircle,
     Loader2
 } from 'lucide-react';
 
@@ -80,7 +82,9 @@ const AdminDashboard = () => {
             if (activeTab === 'all') return matchesSearch;
             if (activeTab === 'reported') return matchesSearch && issue.status === 'Reported';
             if (activeTab === 'progress') return matchesSearch && issue.status === 'InProgress';
+            if (activeTab === 'onhold') return matchesSearch && issue.status === 'OnHold';
             if (activeTab === 'resolved') return matchesSearch && issue.status === 'Resolved';
+            if (activeTab === 'rejected') return matchesSearch && issue.status === 'Rejected';
             return matchesSearch;
         })
         .sort((a, b) => {
@@ -92,15 +96,17 @@ const AdminDashboard = () => {
 
     const departmentName = userData?.department_in_charge || "General";
 
-    const sidebarItems = [
-        { id: 'all', label: 'All Issues', icon: <Inbox size={20} /> },
-        { id: 'reported', label: 'Pending', icon: <AlertCircle size={20} /> },
-        { id: 'progress', label: 'In Progress', icon: <Clock size={20} /> },
-        { id: 'resolved', label: 'Resolved', icon: <CheckCircle size={20} /> },
+    const activeStats = [
+        { id: 'all', label: 'All Issues', icon: <Inbox size={22} />, count: issues.length, color: 'text-[#34C1E3]', bg: 'bg-[#34C1E31A]', border: 'hover:border-[#34C1E3]/30' },
+        { id: 'reported', label: 'Pending', icon: <AlertCircle size={22} />, count: issues.filter(i => i.status === 'Reported').length, color: 'text-amber-500', bg: 'bg-amber-50', border: 'hover:border-amber-300' },
+        { id: 'progress', label: 'In Progress', icon: <Clock size={22} />, count: issues.filter(i => i.status === 'InProgress').length, color: 'text-blue-500', bg: 'bg-blue-50', border: 'hover:border-blue-300' },
+        { id: 'onhold', label: 'On Hold', icon: <PauseCircle size={22} />, count: issues.filter(i => i.status === 'OnHold').length, color: 'text-orange-500', bg: 'bg-orange-50', border: 'hover:border-orange-300' },
+        { id: 'resolved', label: 'Resolved', icon: <CheckCircle size={22} />, count: issues.filter(i => i.status === 'Resolved').length, color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'hover:border-emerald-300' },
+        { id: 'rejected', label: 'Rejected', icon: <XCircle size={22} />, count: issues.filter(i => i.status === 'Rejected').length, color: 'text-red-500', bg: 'bg-red-50', border: 'hover:border-red-300' },
     ];
 
     return (
-        <div className="flex h-screen bg-slate-50 font-sans overflow-hidden relative">
+        <div className="flex min-h-[calc(100vh-65px)] bg-slate-50 font-sans relative items-start">
             
             {/* Custom Success Toast */}
             {toastMessage && (
@@ -110,134 +116,79 @@ const AdminDashboard = () => {
                 </div>
             )}
 
-            {/* Sidebar */}
-            <aside className="w-64 bg-[#F1F5F9] border-r border-slate-200 flex flex-col shrink-0">
-                <div className="p-6">
-                    <div className="flex items-center gap-2 mb-8">
-                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                            <LayoutDashboard className="text-white" size={18} />
-                        </div>
-                        <span className="font-black text-slate-800 text-lg tracking-tight">AU Connect Admin</span>
-                    </div>
-
-                    <nav className="space-y-1.5">
-                        {sidebarItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === item.id
-                                    ? 'bg-white text-primary shadow-sm shadow-slate-200 border border-slate-100 scale-[1.02]'
-                                    : 'text-slate-500 hover:bg-white/50 hover:text-slate-700'
-                                    }`}
-                            >
-                                {item.icon}
-                                {item.label}
-                            </button>
-                        ))}
-                    </nav>
-                </div>
-
-                <div className="mt-auto p-6 border-t border-slate-200">
-                    <button
-                        onClick={logout}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                        <LogOut size={20} />
-                        Logout
-                    </button>
+            {/* Left Vertical Stats Panel */}
+            <aside className="w-64 bg-white/80 backdrop-blur-md border-r border-slate-200 flex flex-col shrink-0 z-30 sticky top-[65px] h-[calc(100vh-65px)]">
+                <div className="p-4 pt-6 flex-grow flex flex-col gap-2 overflow-y-auto hide-scrollbar">
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 px-1">Live Tracker & Statistics</h3>
+                    {activeStats.map((stat) => (
+                        <button
+                            key={stat.id}
+                            onClick={() => {
+                                setActiveTab(stat.id);
+                                setSearchQuery('');
+                                setSortBy('latest');
+                            }}
+                            className={`w-full bg-white p-3 rounded-xl border transition-all duration-300 text-left shrink-0 hover:-translate-y-0.5 ${
+                                activeTab === stat.id 
+                                ? `border-primary shadow-md shadow-primary/20 ring-1 ring-primary/20 z-10 scale-[1.02]` 
+                                : `border-slate-100 shadow-sm ${stat.border}`
+                            }`}
+                        >
+                            <div className="flex flex-row items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${activeTab === stat.id ? 'bg-primary text-white shadow-inner' : `${stat.bg} ${stat.color}`}`}>
+                                    {stat.icon}
+                                </div>
+                                <div className="flex flex-col items-start gap-1">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">{stat.label}</p>
+                                    <h4 className="text-xl font-black text-slate-800 tracking-tighter leading-none">{stat.count}</h4>
+                                </div>
+                            </div>
+                        </button>
+                    ))}
                 </div>
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-grow flex flex-col h-full overflow-hidden bg-white/50 backdrop-blur-xl">
-                {/* Header */}
-                <header className="h-20 border-b border-slate-200 bg-white/80 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 shrink-0">
-                    <div>
-                        <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-1.5">
-                            {departmentName} <span className="text-primary text-[10px] px-2 py-0.5 bg-primary/10 rounded-md uppercase tracking-wider">Workspace</span>
-                        </h2>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Dashboard Overview</p>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="relative group hidden sm:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search by ticket ID or title..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10 pr-4 py-2 bg-slate-100/50 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-64 transition-all"
-                            />
+            <main className="flex-grow flex flex-col min-h-[calc(100vh-65px)] bg-slate-50/50 backdrop-blur-xl">
+                
+                {/* Sticky Analytics Toolbar */}
+                <div className="sticky top-[65px] z-20 bg-slate-50/95 backdrop-blur-xl border-b border-slate-200/60 shadow-sm px-8 py-3 shrink-0">
+                    <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="inline-block shrink-0">
+                            <h3 className="text-[20px] font-black text-[#1E293B] tracking-tight leading-none mb-1">
+                                {activeStats.find(item => item.id === activeTab)?.label}
+                            </h3>
+                            <div className="h-1 w-1/3 bg-primary-gradient rounded-full"></div>
                         </div>
-                        <button className="p-2 rounded-full hover:bg-slate-100 text-slate-500 relative transition-colors">
-                            <Bell size={20} />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-white"></span>
-                        </button>
-                    </div>
-                </header>
 
-                {/* Dashboard Body */}
-                <div className="p-8 h-full overflow-y-auto custom-scrollbar">
-                    <div className="max-w-7xl mx-auto w-full">
-
-                        {/* Statistics Banner */}
-                        {!loading && (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
-                                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-5 group hover:border-[#34C1E3]/30 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-xl bg-[#34C1E31A] text-[#34C1E3] flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Inbox size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Reports</p>
-                                        <h4 className="text-2xl font-black text-slate-800 tracking-tighter mt-0.5">{issues.length}</h4>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-5 group hover:border-blue-200 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <AlertCircle size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending</p>
-                                        <h4 className="text-2xl font-black text-slate-800 tracking-tighter mt-0.5">
-                                            {issues.filter(i => i.status === 'Reported').length}
-                                        </h4>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-5 group hover:border-purple-200 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Clock size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">In Progress</p>
-                                        <h4 className="text-2xl font-black text-slate-800 tracking-tighter mt-0.5">
-                                            {issues.filter(i => i.status === 'InProgress').length}
-                                        </h4>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="inline-block">
-                                <h3 className="text-2xl font-black text-[#1E293B] tracking-tight">
-                                    {sidebarItems.find(item => item.id === activeTab)?.label}
-                                </h3>
-                                <div className="h-1 w-1/3 bg-primary-gradient rounded-full mt-2"></div>
+                        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                            {/* Search Bar */}
+                            <div className="relative group w-full md:w-72">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search ticket ID or title..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 w-full transition-all shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)]"
+                                />
                             </div>
 
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                                    <ListFilter size={14} className="text-primary" />
-                                    Sort By
-                                </div>
+                            {/* Sort Filter */}
+                            <div className="flex items-center bg-white pr-2 pl-1.5 py-1 rounded-full border border-slate-200 shrink-0 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] transition-all hover:border-slate-300">
                                 <Select value={sortBy} onValueChange={setSortBy}>
-                                    <SelectTrigger className="w-[140px] h-9 text-xs font-bold border-slate-200 bg-white shadow-sm rounded-xl focus:ring-primary/20">
-                                        <SelectValue placeholder="Sort" />
+                                    <SelectTrigger className="w-[160px] h-8 text-xs font-bold border-none bg-transparent focus:ring-0 shadow-none px-2">
+                                        <div className="flex items-center gap-2 w-full truncate">
+                                            <div className="p-1 bg-purple-50 text-purple-500 rounded-md shrink-0">
+                                                <ListFilter size={14} />
+                                            </div>
+                                            <div className="flex flex-col items-start gap-0 flex-grow text-left mt-0.5 truncate overflow-hidden">
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Sort By</span>
+                                                <SelectValue placeholder="Sort" className="truncate" />
+                                            </div>
+                                        </div>
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                                    <SelectContent position="popper" sideOffset={5} className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
                                         <SelectItem value="latest" className="text-xs font-bold py-2 focus:bg-primary/5">Latest First</SelectItem>
                                         <SelectItem value="oldest" className="text-xs font-bold py-2 focus:bg-primary/5">Oldest First</SelectItem>
                                         <SelectItem value="upvotes" className="text-xs font-bold py-2 focus:bg-primary/5">Most Upvoted</SelectItem>
@@ -245,9 +196,15 @@ const AdminDashboard = () => {
                                 </Select>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Dashboard Body */}
+                <div className="px-8 pb-8 pt-8">
+                    <div className="max-w-7xl mx-auto w-full">
 
                         {/* Issue Cards Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
                             {loading ? (
                                 <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400">
                                     <Loader2 className="animate-spin mb-4" size={40} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, ThumbsUp, Calendar, AlertCircle, Clock, CheckCircle2, MoreHorizontal } from 'lucide-react';
+import { MapPin, ThumbsUp, Calendar, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AdminIssueCard = ({ issue, onClick }) => {
@@ -96,10 +96,9 @@ const AdminIssueCard = ({ issue, onClick }) => {
                                 <span className="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-tighter">Impact</span>
                             </span>
                         </div>
-
-                        <button className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-full transition-all">
-                            <MoreHorizontal size={20} />
-                        </button>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0 flex items-center gap-1">
+                            Review Issue <span className="text-sm leading-none">&rarr;</span>
+                        </span>
                     </div>
                 </div>
             </div>

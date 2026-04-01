@@ -177,7 +177,8 @@ const ReportIssue = () => {
                     email: currentUser.email
                 },
                 timestamp: serverTimestamp(),
-                upvotes: 0
+                upvotes: 0,
+                upvotedBy: []
             };
 
             await addDoc(collection(db, "issues"), issueData);

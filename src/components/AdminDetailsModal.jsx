@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import { MapPin, Clock, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
@@ -46,7 +46,12 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
             const updateData = {
                 status: selectedAction,
                 adminRemarks: adminRemark,
-                lastUpdatedAt: new Date()
+                lastUpdatedAt: new Date(),
+                statusHistory: arrayUnion({
+                    status: selectedAction,
+                    remarks: adminRemark,
+                    timestamp: new Date()
+                })
             };
 
             if (selectedAction === 'Resolved' || selectedAction === 'Rejected') {
@@ -213,45 +218,26 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
                                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-1.5">
                                     <Clock size={14} /> Resolution Progress
                                 </h4>
-                                <StatusStepper currentStatus={selectedIssue?.status || 'Reported'} />
+                                <StatusStepper issue={selectedIssue} />
                             </div>
 
-                            {/* Admin Feedback Section */}
-                            {(selectedIssue?.adminRemarks || selectedIssue?.afterImageUrl) && (
+                            {/* Documented Proof Section */}
+                            {selectedIssue?.afterImageUrl && (
                                 <div className="mt-8 border-t border-slate-100 pt-6">
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                                        <AlertCircle size={14} className="text-primary" /> Admin Updates & Remarks
+                                    <h4 className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4">
+                                        <CheckCircle size={14} className="text-emerald-500" /> Documented Proof
                                     </h4>
-                                    
-                                    {selectedIssue.adminRemarks && (
-                                        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 shadow-sm border-l-4 border-l-primary">
-                                            <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-2">
-                                                Latest Status Communication
-                                            </p>
-                                            <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">
-                                                {selectedIssue.adminRemarks}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedIssue.afterImageUrl && (
-                                        <div className="mt-6">
-                                            <p className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3">
-                                                <CheckCircle size={14} /> Documented Proof
-                                            </p>
-                                            <div className="h-56 md:h-72 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative shadow-inner flex items-center justify-center">
-                                                <div
-                                                    className="absolute inset-0 bg-cover bg-center opacity-40 blur-2xl scale-125 transition-all"
-                                                    style={{ backgroundImage: `url(${selectedIssue.afterImageUrl})` }}
-                                                ></div>
-                                                <img 
-                                                    src={selectedIssue.afterImageUrl} 
-                                                    alt="Proof Output" 
-                                                    className="w-full h-full object-contain relative z-10 p-2"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
+                                    <div className="h-56 md:h-72 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative shadow-inner flex items-center justify-center">
+                                        <div
+                                            className="absolute inset-0 bg-cover bg-center opacity-40 blur-2xl scale-125 transition-all"
+                                            style={{ backgroundImage: `url(${selectedIssue.afterImageUrl})` }}
+                                        ></div>
+                                        <img 
+                                            src={selectedIssue.afterImageUrl} 
+                                            alt="Proof Output" 
+                                            className="w-full h-full object-contain relative z-10 p-2"
+                                        />
+                                    </div>
                                 </div>
                             )}
 
