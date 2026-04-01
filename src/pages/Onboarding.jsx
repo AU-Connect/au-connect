@@ -36,9 +36,17 @@ const departments = [
 ];
 
 const Onboarding = () => {
-    const { currentUser, userData, isOnboarded } = useAuth();
+    const { currentUser, userData, isOnboarded, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-app-bg">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
     const [formData, setFormData] = useState({
         name: '',
         rollNumber: '',
@@ -93,7 +101,7 @@ const Onboarding = () => {
                 role: 'student',
                 updatedAt: new Date().toISOString()
             }, { merge: true });
-            navigate('/profile'); // Changed to profile for better feedback after edit
+            navigate('/'); // Redirection to Home after successful onboarding/edit
         } catch (err) {
             console.error("Error saving profile:", err);
             setError("Failed to save profile. Please try again.");

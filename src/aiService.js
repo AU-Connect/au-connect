@@ -12,8 +12,8 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_KEY);
  */
 export const classifyComplaint = async (description) => {
     try {
-        // Use the gemini-2.5-flash model for fast and efficient classification
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        // Using the highly stable, most compatible identifier: gemini-1.5-flash
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `
             You are a campus administrator for Andhra University. 
@@ -43,8 +43,47 @@ export const classifyComplaint = async (description) => {
         const parsed = JSON.parse(jsonMatch[0]);
         return parsed.category;
     } catch (error) {
-        console.error("AI Classification Error:", error);
-        // Fallback or re-throw depending on how you want to handle failures in UI
-        throw error;
+        console.warn("Gemini API Limit or Error reached. Using local fallback categorization.", error);
+        
+        // Robust Local Fallback (Keyword Matching)
+        const d = (description || "").toLowerCase();
+        if (d.includes('light') || d.includes('wire') || d.includes('power') || d.includes('fan') || d.includes('switch')) return "Electrical";
+        if (d.includes('leak') || d.includes('wall') || d.includes('crack') || d.includes('door') || d.includes('floor')) return "Civil";
+        if (d.includes('wifi') || d.includes('internet') || d.includes('network') || d.includes('offline')) return "Internet";
+        if (d.includes('water') || d.includes('trash') || d.includes('waste') || d.includes('sanitation') || d.includes('dirty')) return "Sanitation";
+        if (d.includes('class') || d.includes('exam') || d.includes('attendance') || d.includes('subject')) return "Academic";
+        
+        return "General";
     }
 };
+
+/**
+ * Handles chat interaction with Unibot AI using Gemini.
+ * 
+ * @param {string} userMessage - The message from the student.
+ * @returns {Promise<string>} - The AI's response.
+ */
+export const getUnibotResponse = async (userMessage) => {
+    // TEMPORARY: Disabled Gemini API for Unibot to prioritize API budget for auto-categorization
+    // The UI and logic remain intact, but it now returns a mock response
+    
+    // Simulate thinking delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const msg = userMessage.toLowerCase();
+
+    if (msg.includes('fee')) {
+        return "Regular PG/Professional exam fees are approximately ₹805. Please pay online via the AU Exams portal (exams.andhrauniversity.edu.in). No demand drafts are accepted.";
+    }
+
+    if (msg.includes('seat')) {
+        return "B.Tech CSE Through AUEET has 540 seats (Self-Support mode) out of 690 total Engineering seats. Detailed branch-wise allotments are available in the admission brochure.";
+    }
+
+    if (msg.includes('contact') || msg.includes('phone') || msg.includes('call')) {
+        return "You can reach AU support at 0891-2844000 or 0891-2844197. For official enquiries, email: enquiry@andhrauniversity.edu.in.";
+    }
+
+    return "Hello! I am currently in 'Demo Mode' so we can prioritize the system's background processes. I can still help with basic info about AU fees, AUEET seats, and contact numbers. How can I assist you today?";
+};
+

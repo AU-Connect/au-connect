@@ -114,7 +114,7 @@ const Profile = () => {
                     <Button
                         onClick={handleLogout}
                         variant="secondary"
-                        className={`w-full h-12 ${userData?.role === 'admin' ? 'bg-primary-gradient text-white' : 'bg-white text-red-500 border border-slate-100'} hover:brightness-110 font-semibold rounded-xl flex items-center justify-center gap-3 transition-all shadow-sm active:scale-[0.98]`}
+                        className="w-full h-12 bg-white text-red-500 border border-slate-100 hover:bg-red-500 hover:text-white hover:border-red-500 font-semibold rounded-xl flex items-center justify-center gap-3 transition-all shadow-sm active:scale-[0.98]"
                     >
                         <LogOut className="w-5 h-5" />
                         Logout Session

@@ -15,7 +15,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     if (!currentUser) {
-        return <Navigate to="/login" />;
+        return <Navigate to="/login" state={{ from: location.pathname }} />;
     }
 
     // Redirect admins away from student pages (except for the profile page)
@@ -25,7 +25,7 @@ const ProtectedRoute = ({ children }) => {
 
     // Force onboarding only for the report page
     if (location.pathname === '/report' && !isOnboarded) {
-        return <Navigate to="/onboarding" />;
+        return <Navigate to="/onboarding" state={{ from: location.pathname }} />;
     }
 
     return children;

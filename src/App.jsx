@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import Unibot from './components/Unibot';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
             } />
           </Routes>
         </main>
+        <Unibot />
         <Footer />
       </div>
     </Router>

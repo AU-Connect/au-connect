@@ -7,8 +7,16 @@ import Background from '../components/Background';
 import FeatureCard from '../components/FeatureCard';
 
 const Home = () => {
-    const { currentUser, userData } = useAuth();
+    const { currentUser, userData, loading } = useAuth();
     const navigate = useNavigate();
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-app-bg">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
 
     React.useEffect(() => {
         if (userData?.role === 'admin') {
@@ -19,33 +27,33 @@ const Home = () => {
     const features = useMemo(() => [
         {
             icon: <Zap className="text-yellow-500" />,
-            title: "AI Powered",
-            description: "Advanced Gemini AI instantly categorizes your issues for faster department routing."
+            title: "AI Identification",
+            description: "Advanced Gemini AI instantly categorizes your issues for precise departmental routing."
         },
         {
             icon: <Clock className="text-blue-500" />,
             title: "Real-time Tracking",
-            description: "Watch your grievance move through the visual status timeline from reported to resolved."
+            description: "Follow the exact progress of your grievance with instant status and timeline updates."
         },
         {
             icon: <ShieldCheck className="text-green-500" />,
-            title: "Secure Portal",
-            description: "Direct accountability with photo proof and official admin remarks on every step."
+            title: "Verified Evidence",
+            description: "Attach photo proof with every report to ensure total transparency and direct admin accountability."
         },
         {
             icon: <MessageSquare className="text-purple-500" />,
-            title: "Direct Feedback",
-            description: "Communicate directly with departmental heads regarding your concerns."
+            title: "Community Voices",
+            description: "Upvote and highlight major campus issues so that top student concerns are resolved first."
         },
         {
             icon: <BarChart3 className="text-orange-500" />,
-            title: "Data Analytics",
-            description: "Help administration identify recurring campus issues through automated trends."
+            title: "Smart Routing",
+            description: "Automatically directs your reports to the specific Head of Department (HOD) for review."
         },
         {
             icon: <Bell className="text-red-500" />,
-            title: "Smart Alerts",
-            description: "Get instant notifications on your phone whenever there's a status update."
+            title: "Instant AI Support",
+            description: "Enlist help from our specialized UniBot anytime for campus rules, fees or grievance steps."
         }
     ], []);
 
@@ -58,12 +66,19 @@ const Home = () => {
                 {/* Welcome Message */}
                 {currentUser && (
                     <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.6 }}
-                        className="mb-4"
+                        className="mb-4 flex items-center justify-center gap-2 cursor-default"
                     >
-                        <span className="text-body-text text-lg font-medium tracking-wide">Hi, {currentUser.displayName || 'Student'} 👋</span>
+                        <span className="text-slate-500 text-lg font-medium tracking-wide">
+                            Welcome back, <span className="text-primary font-bold">{currentUser.displayName?.split(' ')[0] || 'Student'}</span>
+                        </span>
+                        <motion.span 
+                            animate={{ rotate: [0, 20, 0, 20, 0] }}
+                            transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 1 }}
+                            className="inline-block text-2xl"
+                        >👋</motion.span>
                     </motion.div>
                 )}
 
@@ -117,7 +132,7 @@ const Home = () => {
                     {currentUser && (
                         <Link
                             to="/feed"
-                            className="glass-card px-10 py-4 rounded-[12px] text-heading font-bold text-lg shadow-lg hover:bg-white transition-all duration-300 min-w-[200px] border border-border-custom"
+                            className="glass-card px-10 py-4 rounded-[12px] text-heading font-bold text-lg shadow-lg hover:bg-white hover:scale-105 active:scale-95 transition-all duration-300 min-w-[200px] border border-border-custom flex items-center justify-center"
                         >
                             Track complaints
                         </Link>

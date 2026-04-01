@@ -53,7 +53,17 @@ const departments = [
 ];
 
 const ReportIssue = () => {
-    const { userData, currentUser } = useAuth();
+    const { userData, currentUser, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        // Enforce onboarding for students
+        if (currentUser && !userData && !authLoading) {
+            navigate('/onboarding');
+            return;
+        }
+    }, [currentUser, userData, authLoading, navigate]);
+
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -68,7 +78,6 @@ const ReportIssue = () => {
     const [isAiClassifying, setIsAiClassifying] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
-    const navigate = useNavigate();
 
     // Watch description: If user starts editing an already categorized description, 
     // we could reset it, but the re-trigger on blur logic is handled by handleAiClassification.
@@ -82,9 +91,11 @@ const ReportIssue = () => {
         // Trigger only if description is substantial
         if (formData.description.trim().length > 10) {
             setIsAiClassifying(true);
+            console.log("Auto-Categorizing Issue...");
             try {
                 const category = await classifyComplaint(formData.description);
                 if (category) {
+                    console.log("AI Suggested Category:", category);
                     // Ensure the category matches the case in our dropdown options (e.g., "Electrical")
                     const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase().trim();
                     setFormData(prev => ({ ...prev, category: normalizedCategory }));

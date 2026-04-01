@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, or, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import ComplaintCard from '../components/ComplaintCard';
@@ -27,7 +28,8 @@ L.Icon.Default.mergeOptions({
 });
 
 const Feed = () => {
-    const { currentUser, userData } = useAuth();
+    const { currentUser, userData, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
     const [issues, setIssues] = useState([]);
     const [activeFilter, setActiveFilter] = useState('My Department');
     const [loading, setLoading] = useState(true);
@@ -38,22 +40,38 @@ const Feed = () => {
     const [sortBy, setSortBy] = useState('latest');
 
     useEffect(() => {
-        // Wait until user data is fully loaded
-        if (!currentUser || !userData?.department) return;
+        // 1. Initial Gate - Not logged in
+        if (!currentUser && !authLoading) {
+            navigate('/login');
+            return;
+        }
 
-        // Build the specific query logic for the feed
-        // Included General Department to ensure those issues are fetched for the new filter tab
+        // 2. Onboarding Gate - Logged in but no profile (Students only)
+        if (currentUser && !userData && !authLoading) {
+            // Note: Admins are pre-seeded in DB, students create their docs here
+            navigate('/onboarding');
+            return;
+        }
+
+        // 3. Early Return if still loading or missing safe prerequisites
+        if (authLoading || !currentUser || !userData) return;
+
+        // Determine target department filter
+        const userDept = userData.department || userData.department_in_charge || "";
+
+        // Build the query
+        // Students see: Own issues OR their Department OR General issues
+        // Admins see: Official department issues OR General issues
         const q = query(
             collection(db, "issues"),
             or(
                 where("userId", "==", currentUser.uid),
-                where("department", "==", userData.department),
+                where("department", "==", userDept),
                 where("department", "==", "GENERAL/PRINCIPAL OFFICE DEPARTMENT")
             ),
             orderBy("timestamp", "desc")
         );
 
-        // Fetch using a realtime listener
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedList = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -71,7 +89,7 @@ const Feed = () => {
 
         // Cleanup the listener when the component unmounts
         return () => unsubscribe();
-    }, [currentUser, userData]);
+    }, [currentUser, userData, authLoading, navigate]);
 
     if (loading) {
         return (

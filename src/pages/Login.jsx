@@ -9,14 +9,22 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const Login = () => {
-    const { login, userData } = useAuth();
+    const { login, userData, loading } = useAuth();
     const navigate = useNavigate();
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-app-bg">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
 
     React.useEffect(() => {
         if (userData?.role === 'admin') {
             navigate('/admin');
         } else if (userData?.role === 'student') {
-            navigate('/feed');
+            navigate('/');
         }
     }, [userData, navigate]);
 
@@ -39,7 +47,7 @@ const Login = () => {
                 }
                 // Scenario B: Returning Student
                 else if (userData.role === 'student') {
-                    navigate('/feed');
+                    navigate('/');
                 }
                 else {
                     // Fallback if role is not strictly defined

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.png';
+import { useUnibotStore } from '../hooks/useUnibotStore';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,6 +15,8 @@ import {
 const Navbar = () => {
     const { currentUser, userData, isOnboarded, logout } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
+    const { isOpen, setIsOpen } = useUnibotStore();
 
     const navLinks = userData?.role === 'admin'
         ? [{ name: 'Dashboard', path: '/admin' }]
@@ -21,7 +24,6 @@ const Navbar = () => {
             { name: 'Home', path: '/' },
             { name: 'Feed', path: '/feed' },
             { name: 'Report Issue', path: '/report' },
-            { name: 'Unibot', path: '/unibot' },
         ];
 
     const isActiveProfile = location.pathname === '/profile';
@@ -52,12 +54,25 @@ const Navbar = () => {
 
             {/* Right side: Navigation Links */}
             <div className="flex items-center gap-8">
-                {navLinks.map((link) => {
-                    const isActive = location.pathname === link.path;
+            {navLinks.map((link) => {
+                    const highlightTarget = location.state?.from;
+                    const isActive = location.pathname === link.path || 
+                                   ((location.pathname === '/onboarding' || location.pathname === '/login') && highlightTarget === link.path);
+                    
+                    const handleNavClick = (e) => {
+                        // Restricted paths for anyone who isn't fully onboarded yet
+                        const isRestricted = ['/feed', '/report'].includes(link.path);
+                        if (currentUser && !isOnboarded && isRestricted) {
+                            e.preventDefault();
+                            navigate('/onboarding', { state: { from: link.path } });
+                        }
+                    };
+
                     return (
                         <Link
                             key={link.path}
                             to={link.path}
+                            onClick={handleNavClick}
                             className={`transition-all duration-300 font-medium relative py-1 px-2 rounded-md ${isActive
                                 ? "text-primary bg-primary/5 shadow-[0_0_20px_rgba(52,193,227,0.4)] border border-primary/20 [text-shadow:0_0_8px_rgba(52,193,227,0.4)]"
                                 : "text-body-text hover:text-primary hover:bg-slate-50"
@@ -70,6 +85,31 @@ const Navbar = () => {
                         </Link>
                     );
                 })}
+
+                {/* Special Unibot Portal Button - Visible Globally for Students */}
+                {userData?.role !== 'admin' && (
+                    <button 
+                        onClick={() => {
+                            if (!currentUser) {
+                                navigate('/login', { state: { from: 'unibot' } });
+                            } else if (!isOnboarded) {
+                                navigate('/onboarding', { state: { from: 'unibot' } });
+                            } else {
+                                setIsOpen(true);
+                            }
+                        }}
+                        className={`transition-all duration-300 font-medium relative py-1 px-2 rounded-md ${
+                            (isOpen || ((location.pathname === '/onboarding' || location.pathname === '/login') && location.state?.from === 'unibot'))
+                            ? "text-primary bg-primary/5 shadow-[0_0_20px_rgba(52,193,227,0.4)] border border-primary/20 [text-shadow:0_0_8px_rgba(52,193,227,0.4)]"
+                            : "text-body-text hover:text-primary hover:bg-slate-50"
+                            }`}
+                    >
+                        Unibot
+                        {(isOpen || ((location.pathname === '/onboarding' || location.pathname === '/login') && location.state?.from === 'unibot')) && (
+                            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-primary-gradient rounded-full shadow-[0_0_8px_#34C1E3]" />
+                        )}
+                    </button>
+                )}
 
                 {currentUser ? (
                     <Link
