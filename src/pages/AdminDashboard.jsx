@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import AdminIssueCard from '../components/AdminIssueCard';
 import AdminDetailsModal from '../components/AdminDetailsModal';
+import AdminStatistics from '../components/AdminStatistics';
 import {
     Select,
     SelectContent,
@@ -29,7 +30,9 @@ import {
     AlertCircle,
     PauseCircle,
     XCircle,
-    Loader2
+    Loader2,
+    BarChart3,
+    TrendingUp
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -103,6 +106,7 @@ const AdminDashboard = () => {
         { id: 'onhold', label: 'On Hold', icon: <PauseCircle size={22} />, count: issues.filter(i => i.status === 'OnHold').length, color: 'text-orange-500', bg: 'bg-orange-50', border: 'hover:border-orange-300' },
         { id: 'resolved', label: 'Resolved', icon: <CheckCircle size={22} />, count: issues.filter(i => i.status === 'Resolved').length, color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'hover:border-emerald-300' },
         { id: 'rejected', label: 'Rejected', icon: <XCircle size={22} />, count: issues.filter(i => i.status === 'Rejected').length, color: 'text-red-500', bg: 'bg-red-50', border: 'hover:border-red-300' },
+        { id: 'stats', label: 'Resource Stats', icon: <BarChart3 size={22} />, count: null, color: 'text-purple-500', bg: 'bg-purple-50', border: 'hover:border-purple-300' },
     ];
 
     return (
@@ -162,39 +166,44 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-                            {/* Search Bar */}
-                            <div className="relative group w-full md:w-72">
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search ticket ID or title..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 w-full transition-all shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)]"
-                                />
-                            </div>
+                            {/* Search and Sort - Hide in Stats Mode */}
+                            {activeTab !== 'stats' && (
+                                <>
+                                    {/* Search Bar */}
+                                    <div className="relative group w-full md:w-72">
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search ticket ID or title..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-full text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 w-full transition-all shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)]"
+                                        />
+                                    </div>
 
-                            {/* Sort Filter */}
-                            <div className="flex items-center bg-white pr-2 pl-1.5 py-1 rounded-full border border-slate-200 shrink-0 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] transition-all hover:border-slate-300">
-                                <Select value={sortBy} onValueChange={setSortBy}>
-                                    <SelectTrigger className="w-[160px] h-8 text-xs font-bold border-none bg-transparent focus:ring-0 shadow-none px-2">
-                                        <div className="flex items-center gap-2 w-full truncate">
-                                            <div className="p-1 bg-purple-50 text-purple-500 rounded-md shrink-0">
-                                                <ListFilter size={14} />
-                                            </div>
-                                            <div className="flex flex-col items-start gap-0 flex-grow text-left mt-0.5 truncate overflow-hidden">
-                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Sort By</span>
-                                                <SelectValue placeholder="Sort" className="truncate" />
-                                            </div>
-                                        </div>
-                                    </SelectTrigger>
-                                    <SelectContent position="popper" sideOffset={5} className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
-                                        <SelectItem value="latest" className="text-xs font-bold py-2 focus:bg-primary/5">Latest First</SelectItem>
-                                        <SelectItem value="oldest" className="text-xs font-bold py-2 focus:bg-primary/5">Oldest First</SelectItem>
-                                        <SelectItem value="upvotes" className="text-xs font-bold py-2 focus:bg-primary/5">Most Upvoted</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                                    {/* Sort Filter */}
+                                    <div className="flex items-center bg-white pr-2 pl-1.5 py-1 rounded-full border border-slate-200 shrink-0 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] transition-all hover:border-slate-300">
+                                        <Select value={sortBy} onValueChange={setSortBy}>
+                                            <SelectTrigger className="w-[160px] h-8 text-xs font-bold border-none bg-transparent focus:ring-0 shadow-none px-2">
+                                                <div className="flex items-center gap-2 w-full truncate">
+                                                    <div className="p-1 bg-purple-50 text-purple-500 rounded-md shrink-0">
+                                                        <ListFilter size={14} />
+                                                    </div>
+                                                    <div className="flex flex-col items-start gap-0 flex-grow text-left mt-0.5 truncate overflow-hidden">
+                                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Sort By</span>
+                                                        <SelectValue placeholder="Sort" className="truncate" />
+                                                    </div>
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent position="popper" sideOffset={5} className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
+                                                <SelectItem value="latest" className="text-xs font-bold py-2 focus:bg-primary/5">Latest First</SelectItem>
+                                                <SelectItem value="oldest" className="text-xs font-bold py-2 focus:bg-primary/5">Oldest First</SelectItem>
+                                                <SelectItem value="upvotes" className="text-xs font-bold py-2 focus:bg-primary/5">Most Upvoted</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -203,13 +212,15 @@ const AdminDashboard = () => {
                 <div className="px-8 pb-8 pt-8">
                     <div className="max-w-7xl mx-auto w-full">
 
-                        {/* Issue Cards Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
+                        {/* Issue List, Cards Grid, or Stats Dashboard */}
+                        <div className={`${activeTab === 'stats' ? '' : 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'} pb-12`}>
                             {loading ? (
                                 <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400">
                                     <Loader2 className="animate-spin mb-4" size={40} />
                                     <p className="font-bold uppercase tracking-widest text-xs">Accessing Secure Records...</p>
                                 </div>
+                            ) : activeTab === 'stats' ? (
+                                <AdminStatistics issues={issues} />
                             ) : filteredIssues.length > 0 ? (
                                 filteredIssues.map(issue => (
                                     <AdminIssueCard

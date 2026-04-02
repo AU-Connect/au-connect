@@ -329,61 +329,78 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
 
             {/* Admin Action Remark Modal */}
             <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
-                <DialogContent className="sm:max-w-md w-[95vw] max-h-[90vh] overflow-y-auto custom-scrollbar bg-white border border-slate-200 rounded-2xl shadow-2xl p-6">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black text-slate-800 tracking-tight">
-                            Confirm Status Update
-                        </DialogTitle>
-                        <DialogDescription className="text-sm font-medium text-slate-500 mt-2 leading-relaxed">
-                            You are about to change this issue's status to <span className="text-primary font-black uppercase mx-1">{selectedAction}</span>.
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className={`${
+                    (selectedAction === 'Resolved' || selectedAction === 'Rejected') ? 'sm:max-w-2xl' : 'sm:max-w-md'
+                } w-[95vw] max-h-[85vh] flex flex-col p-0 overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-2xl transition-all duration-300`}>
+                    {/* Header: Static */}
+                    <div className="p-5 pb-3 border-b border-slate-100">
+                        <DialogHeader>
+                            <DialogTitle className="text-lg font-black text-slate-800 tracking-tight">
+                                Confirm Status Update
+                            </DialogTitle>
+                            <DialogDescription className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">
+                                You are about to change this issue's status to <span className="text-primary font-black uppercase mx-1">{selectedAction}</span>.
+                            </DialogDescription>
+                        </DialogHeader>
+                    </div>
 
-                    <div className="mt-4 mb-2">
-                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">
-                            Mandatory Admin Remark <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                            value={adminRemark}
-                            onChange={(e) => setAdminRemark(e.target.value)}
-                            placeholder="Explain the exact reason for this status change to the student (min 10 characters)..."
-                            className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 resize-none transition-all placeholder:text-slate-400 font-medium"
-                        />
-                        <div className="flex justify-between items-center mt-2.5 px-1 mb-6">
-                            <span className={`text-[10px] uppercase tracking-widest font-black transition-colors ${adminRemark.trim().length >= 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
-                                {adminRemark.trim().length} / 10 Characters Needed
-                            </span>
+                    {/* Content: Dynamic Layout */}
+                    <div className="flex-grow overflow-y-auto p-5 custom-scrollbar bg-slate-50/30">
+                        <div className={`grid gap-5 ${
+                            (selectedAction === 'Resolved' || selectedAction === 'Rejected') ? 'md:grid-cols-2' : 'grid-cols-1'
+                        }`}>
+                            {/* Remark Section */}
+                            <div>
+                                <label className="text-xs font-black text-slate-900 uppercase tracking-widest mb-1.5 block">
+                                    Mandatory Admin Remark <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    value={adminRemark}
+                                    onChange={(e) => setAdminRemark(e.target.value)}
+                                    placeholder="Explain the exact reason for this status change to the student (min 10 characters)..."
+                                    className="w-full h-32 p-3.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 resize-none transition-all placeholder:text-slate-400 font-medium shadow-sm"
+                                />
+                                <div className="flex justify-between items-center mt-2 px-1">
+                                    <span className={`text-[10px] uppercase tracking-widest font-black transition-colors ${adminRemark.trim().length >= 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                        {adminRemark.trim().length} / 10 Characters Needed
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Proof/Photo Section (Conditional) */}
+                            {(selectedAction === 'Resolved' || selectedAction === 'Rejected') && (
+                                <div className="md:border-l md:border-slate-200/60 md:pl-5">
+                                    <label className="text-xs font-black text-slate-900 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 block">
+                                        {selectedAction === 'Resolved' ? (
+                                            <CheckCircle size={14} className="text-emerald-500" />
+                                        ) : (
+                                            <AlertCircle size={14} className="text-red-500" />
+                                        )}
+                                        Proof of Resolution <span className="text-red-500">*</span>
+                                    </label>
+                                    <p className="text-[11px] text-slate-500 font-medium mb-3 leading-tight opacity-90">
+                                        As per university guidelines, you must upload an 'After Photo' before resolving.
+                                    </p>
+                                    <div className="bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm">
+                                        <ImageUpload onUploadComplete={(url) => setResolvedImageUrl(url)} />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {(selectedAction === 'Resolved' || selectedAction === 'Rejected') && (
-                        <div className="mb-6 border-t border-slate-100 pt-5">
-                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 block">
-                                {selectedAction === 'Resolved' ? (
-                                    <CheckCircle size={14} className="text-emerald-500" />
-                                ) : (
-                                    <AlertCircle size={14} className="text-red-500" />
-                                )}
-                                Proof of {selectedAction === 'Resolved' ? 'Resolution' : 'Rejection'} <span className="text-red-500">*</span>
-                            </label>
-                            <p className="text-xs text-slate-500 font-medium mb-3">
-                                As per university guidelines, you must upload an 'After Photo' before {selectedAction === 'Resolved' ? 'resolving' : 'rejecting'} the issue.
-                            </p>
-                            <ImageUpload onUploadComplete={(url) => setResolvedImageUrl(url)} />
-                        </div>
-                    )}
-
-                    <div className="flex justify-end gap-3 pt-5 border-t border-slate-100">
+                    {/* Footer: Static & Sticky at Bottom */}
+                    <div className="p-5 bg-white border-t border-slate-100 flex justify-end gap-2.5 shrink-0">
                         <button
                             onClick={() => setActionModalOpen(false)}
-                            className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
+                            className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleUpdateStatus}
                             disabled={updating || adminRemark.trim().length < 10 || ((selectedAction === 'Resolved' || selectedAction === 'Rejected') && !resolvedImageUrl)}
-                            className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all shadow-md flex items-center justify-center min-w-[140px] ${
+                            className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center min-w-[120px] ${
                                 (updating || adminRemark.trim().length < 10 || ((selectedAction === 'Resolved' || selectedAction === 'Rejected') && !resolvedImageUrl))
                                     ? 'bg-slate-300 cursor-not-allowed opacity-50 shadow-none'
                                     : 'bg-primary-gradient hover:brightness-110 hover:shadow-lg active:scale-95'

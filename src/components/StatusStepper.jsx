@@ -1,5 +1,6 @@
 import React from 'react';
-import { Check, X, FileText, Eye, PenTool, PauseCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, X, FileText, Eye, PenTool, PauseCircle, Clock } from 'lucide-react';
 
 const StatusStepper = ({ issue }) => {
     if (!issue) return null;
@@ -8,24 +9,23 @@ const StatusStepper = ({ issue }) => {
 
     // Base configuration for steps
     let steps = [
-        { id: 'Reported', label: 'Reported', activeColor: 'bg-blue-500', icon: <FileText size={16} className="text-white" /> },
-        { id: 'Viewed', label: 'Viewed', activeColor: 'bg-yellow-500', icon: <Eye size={16} className="text-white" /> },
-        { id: 'InProgress', label: 'Work in Progress', activeColor: 'bg-purple-500', icon: <PenTool size={16} className="text-white" /> },
-        { id: 'Resolved', label: 'Resolved', activeColor: 'bg-green-500', icon: <Check size={16} className="text-white" /> }
+        { id: 'Reported', label: 'Reported', activeColor: 'bg-blue-500', shadow: 'shadow-blue-500/40', icon: <FileText size={18} /> },
+        { id: 'Viewed', label: 'Viewed', activeColor: 'bg-amber-500', shadow: 'shadow-amber-500/40', icon: <Eye size={18} /> },
+        { id: 'InProgress', label: 'Work in Progress', activeColor: 'bg-purple-500', shadow: 'shadow-purple-500/40', icon: <PenTool size={18} /> },
+        { id: 'Resolved', label: 'Resolved', activeColor: 'bg-emerald-500', shadow: 'shadow-emerald-500/40', icon: <Check size={18} /> }
     ];
 
     // Exception Logic: OnHold
     if (currentStatus === 'OnHold') {
-        steps[2] = { id: 'OnHold', label: 'Action Paused', activeColor: 'bg-orange-500', icon: <PauseCircle size={16} className="text-white" /> };
+        steps[2] = { id: 'OnHold', label: 'Action Paused', activeColor: 'bg-orange-500', shadow: 'shadow-orange-500/40', icon: <PauseCircle size={18} /> };
     }
 
     // Exception Logic: Rejected
     if (currentStatus === 'Rejected') {
-        steps[2] = { id: 'Rejected', label: 'Issue Rejected', activeColor: 'bg-red-500', icon: <X size={16} className="text-white" /> };
-        steps = steps.slice(0, 3); // We remove the 'Resolved' step since it's rejected
+        steps[2] = { id: 'Rejected', label: 'Issue Rejected', activeColor: 'bg-rose-500', shadow: 'shadow-rose-500/40', icon: <X size={18} /> };
+        steps = steps.slice(0, 3);
     }
 
-    // Determine numerical index of the current status
     const getStatusIndex = (status) => {
         switch (status) {
             case 'Reported': return 0;
@@ -34,38 +34,23 @@ const StatusStepper = ({ issue }) => {
             case 'OnHold':
             case 'Rejected': return 2;
             case 'Resolved': return 3;
-            default: return 0; // Default to 'Reported'
+            default: return 0;
         }
     };
 
     const currentIndex = getStatusIndex(currentStatus);
 
-    // Smart logic to resolve time and remarks for each historical step
     const getStepDetails = (stepId, index) => {
-        // If step isn't reached yet, it has no history
         if (index > currentIndex) return { timestamp: null, remarks: null };
-
-        // 1. Try to find the exact historical array entry for this step
         if (issue.statusHistory && Array.isArray(issue.statusHistory)) {
-            // Sort by timestamp if possible, get the latest entry for this status
             const matches = issue.statusHistory.filter(h => h.status === stepId);
             if (matches.length > 0) {
-                const latestMatch = matches[matches.length - 1]; // arrayUnion appends to end
+                const latestMatch = matches[matches.length - 1];
                 return { timestamp: latestMatch.timestamp, remarks: latestMatch.remarks };
             }
         }
-
-        // 2. Fallbacks for Old Documents without `statusHistory` arrays
-        if (stepId === 'Reported') {
-            return { timestamp: issue.timestamp, remarks: null };
-        }
-        
-        // If it's the current status, fallback to the root metadata
-        if (stepId === currentStatus) {
-            return { timestamp: issue.lastUpdatedAt || issue.resolvedAt || issue.timestamp, remarks: issue.adminRemarks };
-        }
-
-        // If it's a past status but no history is stored, just return null details
+        if (stepId === 'Reported') return { timestamp: issue.timestamp, remarks: null };
+        if (stepId === currentStatus) return { timestamp: issue.lastUpdatedAt || issue.resolvedAt || issue.timestamp, remarks: issue.adminRemarks };
         return { timestamp: null, remarks: null };
     };
 
@@ -83,59 +68,83 @@ const StatusStepper = ({ issue }) => {
     };
 
     return (
-        <div className="py-2">
-            {steps.map((step, index) => {
-                const isActive = index <= currentIndex;
-                const isCurrent = index === currentIndex;
-                const isLast = index === steps.length - 1;
+        <div className="py-4 px-2">
+            <div className="flex flex-col">
+                {steps.map((step, index) => {
+                    const isActive = index <= currentIndex;
+                    const isCurrent = index === currentIndex;
+                    const isLast = index === steps.length - 1;
 
-                const { timestamp, remarks } = getStepDetails(step.id, index);
-                const formattedDate = formatTime(timestamp);
+                    const { timestamp, remarks } = getStepDetails(step.id, index);
+                    const formattedDate = formatTime(timestamp);
 
-                return (
-                    <div key={step.id} className="flex gap-4 relative">
-                        {/* Thin Grey Connecting Line */}
-                        {!isLast && (
-                            <div className="absolute top-8 bottom-[-16px] left-[15px] w-[2px] bg-slate-200" />
-                        )}
-
-                        {/* Step Circle */}
-                        <div className="relative flex flex-col items-center">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center z-10 transition-all duration-300 shadow-sm ${isActive ? step.activeColor : 'bg-slate-100 border-2 border-slate-200'}`}>
-                                {isActive ? step.icon : null}
-                            </div>
-                        </div>
-
-                        {/* Step Content */}
-                        <div className={`pb-8 pt-1 w-full pr-2 ${isActive ? 'opacity-100' : 'opacity-60'}`}>
-                            <div className="flex justify-between items-start gap-2">
-                                <h4 className={`text-sm font-bold ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>
-                                    {step.label}
-                                </h4>
-                                {formattedDate && (
-                                    <span className="text-[10px] sm:text-[11px] text-slate-500 font-semibold bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-sm shrink-0 mt-0.5 whitespace-nowrap">
-                                        {formattedDate}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Show Admin Remarks for ANY active step that has data */}
-                            {isActive && remarks && (
-                                <div className="mt-2.5 animate-in fade-in slide-in-from-top-1 duration-300 mr-2 md:mr-8">
-                                    <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl rounded-tl-sm text-xs text-slate-600 leading-relaxed shadow-sm relative">
-                                        {/* CSS Dialogue Tail */}
-                                        <div className="absolute -top-[1px] -left-[1px] w-2 h-2 bg-slate-50 border-t border-l border-slate-200 rounded-tl-sm"></div>
-                                        <span className="flex items-center gap-1.5 font-bold text-slate-400 block mb-1 text-[9px] uppercase tracking-widest relative z-10">
-                                            Admin Message
-                                        </span>
-                                        <span className="relative z-10 font-medium block whitespace-pre-wrap">{remarks}</span>
-                                    </div>
+                    return (
+                        <div key={step.id} className="flex gap-6 relative">
+                            {/* Animated Connecting Line */}
+                            {!isLast && (
+                                <div className="absolute top-10 bottom-[-10px] left-[17px] w-[2px] bg-slate-200">
+                                    <motion.div 
+                                        initial={{ height: 0 }}
+                                        whileInView={{ height: index < currentIndex ? '100%' : '0%' }}
+                                        viewport={{ once: true }}
+                                        transition={{ duration: 0.8, delay: index * 0.15 }}
+                                        className={`w-full ${step.activeColor} shadow-sm`}
+                                    />
                                 </div>
                             )}
+
+                            {/* Status Node (Circle) */}
+                            <div className="flex flex-col items-center shrink-0">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center z-10 transition-all duration-500 ${
+                                    isActive 
+                                        ? `${step.activeColor} ${step.shadow} text-white ring-4 ring-white shadow-xl` 
+                                        : 'bg-white border-2 border-slate-200 text-slate-400'
+                                }`}>
+                                    {isActive ? step.icon : <Clock size={16} />}
+                                </div>
+                            </div>
+
+                            {/* Content Card */}
+                            <div className={`pb-10 pt-1 flex-grow ${isActive ? 'opacity-100' : 'opacity-70'}`}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <h4 className={`text-sm font-semibold ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>
+                                            {step.label}
+                                        </h4>
+                                        {isCurrent && (
+                                            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                                        )}
+                                    </div>
+                                    
+                                    {formattedDate && (
+                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 bg-slate-100/80 px-3 py-1 rounded-lg border border-slate-200 backdrop-blur-sm self-start">
+                                            <Clock size={10} className="text-slate-400" />
+                                            {formattedDate}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {isActive && remarks && (
+                                    <div className="mt-3 overflow-hidden">
+                                        <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-slate-100 flex flex-col gap-2 relative">
+                                            <div className="absolute top-0 left-0 w-1 h-full bg-primary-gradient opacity-10" />
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${step.activeColor}`} />
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                                                    Admin Message
+                                                </span>
+                                            </div>
+                                            <p className="text-[13px] text-slate-600 font-medium leading-relaxed font-sans whitespace-pre-wrap">
+                                                {remarks}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 };
