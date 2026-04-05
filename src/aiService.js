@@ -12,8 +12,8 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_KEY);
  */
 export const classifyComplaint = async (description) => {
     try {
-        // Using the highly stable, most compatible identifier: gemini-1.5-flash
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Switching to the 1.5-flash pool which has its own separate quota
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
             You are a campus administrator for Andhra University. 
@@ -43,17 +43,9 @@ export const classifyComplaint = async (description) => {
         const parsed = JSON.parse(jsonMatch[0]);
         return parsed.category;
     } catch (error) {
-        console.warn("Gemini API Limit or Error reached. Using local fallback categorization.", error);
-        
-        // Robust Local Fallback (Keyword Matching)
-        const d = (description || "").toLowerCase();
-        if (d.includes('light') || d.includes('wire') || d.includes('power') || d.includes('fan') || d.includes('switch')) return "Electrical";
-        if (d.includes('leak') || d.includes('wall') || d.includes('crack') || d.includes('door') || d.includes('floor')) return "Civil";
-        if (d.includes('wifi') || d.includes('internet') || d.includes('network') || d.includes('offline')) return "Internet";
-        if (d.includes('water') || d.includes('trash') || d.includes('waste') || d.includes('sanitation') || d.includes('dirty')) return "Sanitation";
-        if (d.includes('class') || d.includes('exam') || d.includes('attendance') || d.includes('subject')) return "Academic";
-        
-        return "General";
+        console.error("AI Classification Error:", error);
+        // Fallback or re-throw depending on how you want to handle failures in UI
+        throw error;
     }
 };
 
@@ -64,26 +56,83 @@ export const classifyComplaint = async (description) => {
  * @returns {Promise<string>} - The AI's response.
  */
 export const getUnibotResponse = async (userMessage) => {
-    // TEMPORARY: Disabled Gemini API for Unibot to prioritize API budget for auto-categorization
-    // The UI and logic remain intact, but it now returns a mock response
+    // Separate quota pool for 1.5 models
+    const modelsToTry = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro"];
     
-    // Simulate thinking delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    for (const modelName of modelsToTry) {
+        try {
+            const model = genAI.getGenerativeModel({ model: modelName });
 
-    const msg = userMessage.toLowerCase();
+            const systemPrompt = `
+                You are "Unibot", a highly intelligent and specialized AI assistant for Andhra University (AU), Visakhapatnam.
+                
+                Guidelines:
+                1. Provide concise, factual, and expert-level information about Andhra University.
+                2. Your response must be short and direct. Limit it to 2-3 sentences maximum.
+                3. Be professional, informative, and as capable as the standard Google Gemini assistant.
+                
+                User Inquiry: "${userMessage}"
+            `;
 
-    if (msg.includes('fee')) {
-        return "Regular PG/Professional exam fees are approximately ₹805. Please pay online via the AU Exams portal (exams.andhrauniversity.edu.in). No demand drafts are accepted.";
+            const result = await model.generateContent(systemPrompt);
+            const response = await result.response;
+            const text = response.text();
+            
+            if (text) return text;
+        } catch (error) {
+            console.warn(`Unibot: Model ${modelName} failed or limit reached. Trying next...`, error);
+            // Continue loop to next model
+        }
     }
 
-    if (msg.includes('seat')) {
-        return "B.Tech CSE Through AUEET has 540 seats (Self-Support mode) out of 690 total Engineering seats. Detailed branch-wise allotments are available in the admission brochure.";
-    }
-
-    if (msg.includes('contact') || msg.includes('phone') || msg.includes('call')) {
-        return "You can reach AU support at 0891-2844000 or 0891-2844197. For official enquiries, email: enquiry@andhrauniversity.edu.in.";
-    }
-
-    return "Hello! I am currently in 'Demo Mode' so we can prioritize the system's background processes. I can still help with basic info about AU fees, AUEET seats, and contact numbers. How can I assist you today?";
+    return "I'm sorry, all my primary data connections (AI models) are currently experiencing high load. Please try again in 5-10 minutes, or reach out to the AU Helpline (0891-2844000).";
 };
 
+/**
+ * Step 2: Semantic Duplicate Detection
+ * Detects if a new report matches an existing open issue.
+ */
+export const checkDuplicateWithGemini = async (newTitle, newLocation, recentIssues) => {
+    if (!recentIssues || recentIssues.length === 0) return null;
+
+    try {
+        // Using the high-limit 1.5-flash pool to bypass the 2.0 daily limits
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const prompt = `
+            You are an AU Campus Moderator. Compare the NEW ISSUE against 5 RECENT ISSUES.
+            
+            NEW ISSUE:
+            Title: "${newTitle}"
+            Area: "${newLocation}"
+
+            RECENT ISSUES IN THIS DEPT:
+            ${recentIssues.map((issue, i) => `${i + 1}. [ID: ${issue.id}] Title: "${issue.title}", Area: "${issue.manualLocation}"`).join('\n')}
+
+            TASK:
+            Is the NEW ISSUE talking about the same physical problem? 
+            Example: "Water leakage in C-Block" and "C-Block bathroom tap broken" are a MATCH.
+            Example: "Fan not working" and "Power switch broken" in the same room are a MATCH.
+
+            RULES:
+            1. If it's a match, respond ONLY with the ID of that issue.
+            2. If no match is found, respond ONLY with the word "null".
+            3. respond in plain text, no bolding, no markdown.
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text().trim();
+
+        console.log("Gemini Duplicate Detection Result:", text);
+
+        if (text.toLowerCase().includes('null')) return null;
+        
+        // Clean up the response in case AI adds extra text
+        const matchedId = text.match(/[a-zA-Z0-9]{15,}/); 
+        return matchedId ? matchedId[0] : null;
+    } catch (error) {
+        console.error("Duplicate Check Error:", error);
+        return null;
+    }
+};

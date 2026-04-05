@@ -54,16 +54,21 @@ const AdminIssueCard = ({ issue, onClick }) => {
 
             {/* Content Section */}
             <div className="p-5 flex flex-col flex-grow">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="font-bold text-lg line-clamp-1 flex-grow" style={{ color: '#1E293B' }}>
-                        {issue.title}
-                    </h3>
-                    <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${issue.status === 'Resolved' ? 'bg-green-100 text-green-700' :
-                        issue.status === 'InProgress' ? 'bg-blue-100 text-blue-700' :
-                        issue.status === 'Reported' ? 'bg-orange-100 text-orange-700' :
-                        statusStyle.color}`}>
-                        {issue.status || 'Reported'}
+                <div className="flex flex-col mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1">
+                        ID: {issue.id?.slice(-6)}
                     </span>
+                    <div className="flex items-start justify-between gap-3">
+                        <h3 className="font-bold text-lg line-clamp-1 flex-grow" style={{ color: '#1E293B' }}>
+                            {issue.title}
+                        </h3>
+                        <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${issue.status === 'Resolved' ? 'bg-green-100 text-green-700' :
+                            issue.status === 'InProgress' ? 'bg-blue-100 text-blue-700' :
+                            issue.status === 'Reported' ? 'bg-orange-100 text-orange-700' :
+                            statusStyle.color}`}>
+                            {issue.status || 'Reported'}
+                        </span>
+                    </div>
                 </div>
 
                 <p className="text-sm line-clamp-2 mb-4 leading-relaxed" style={{ color: '#475569' }}>

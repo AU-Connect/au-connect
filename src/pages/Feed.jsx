@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapPin, CheckCircle, Search, ListFilter, Filter, ArrowUpDown } from 'lucide-react';
+import { MapPin, CheckCircle, Search, ListFilter, Filter, ArrowUpDown, ThumbsUp, Clock } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -294,9 +294,14 @@ const Feed = () => {
                                         className="w-full h-full object-contain relative z-10 p-2"
                                     />
                                 </div>
-                                <DialogTitle className="text-2xl font-bold text-slate-800 leading-tight">
-                                    {selectedIssue?.title}
-                                </DialogTitle>
+                                <div className="flex flex-col mb-1">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1">
+                                        ID: {selectedIssue?.id?.slice(-6)}
+                                    </span>
+                                    <DialogTitle className="text-2xl font-bold text-slate-800 leading-tight">
+                                        {selectedIssue?.title}
+                                    </DialogTitle>
+                                </div>
                                 <DialogDescription className="flex flex-wrap items-center gap-2 mt-3">
                                     <span className="px-3 py-1 bg-primary/10 text-primary font-extrabold rounded-full border border-primary/20 text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-sm">
                                         <span className="w-1.5 h-1.5 rounded-full bg-primary" />

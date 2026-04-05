@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import Background from '../components/Background';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,12 +16,22 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { AlertCircle, MapPin, Info, Camera, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import StatusStepper from '../components/StatusStepper';
+import { doc, getDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
+import { AlertCircle, MapPin, Info, Camera, Sparkles, Loader2, CheckCircle2, ThumbsUp } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ImageUpload from '../components/ImageUpload';
-import { classifyComplaint } from '../aiService';
+import { classifyComplaint, checkDuplicateWithGemini } from '../aiService';
 
 // Fix for default marker icons in Leaflet with React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -76,8 +86,13 @@ const ReportIssue = () => {
     const [imageUrl, setImageUrl] = useState("");
     const [error, setError] = useState("");
     const [isAiClassifying, setIsAiClassifying] = useState(false);
+    const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+
+    // Duplicate detection states
+    const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+    const [duplicateIssue, setDuplicateIssue] = useState(null);
 
     // Watch description: If user starts editing an already categorized description, 
     // we could reset it, but the re-trigger on blur logic is handled by handleAiClassification.
@@ -108,12 +123,62 @@ const ReportIssue = () => {
         }
     };
 
+    /**
+     * Step 1: Duplicate Detection - Fetch 5 most recent open issues in the department
+     */
+    const fetchRecentDepartmentIssues = async (department) => {
+        if (!department) return [];
+        
+        try {
+            const issuesRef = collection(db, "issues");
+            const q = query(
+                issuesRef,
+                where("department", "==", department),
+                where("status", "not-in", ["Resolved", "Rejected"]),
+                orderBy("status"), // Required when using not-in with orderBy on another field
+                orderBy("timestamp", "desc"),
+                limit(5)
+            );
+
+            const querySnapshot = await getDocs(q);
+            return querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                title: doc.data().title,
+                manualLocation: doc.data().location?.manualAddress || doc.data().manualLocation
+            }));
+        } catch (err) {
+            console.error("Error fetching recent issues for duplication check:", err);
+            return [];
+        }
+    };
+
+    /**
+     * Handles Upvoting the Duplicate Issue and navigating to it
+     */
+    const handleUpvoteDuplicate = async () => {
+        if (!duplicateIssue) return;
+        
+        try {
+            const issueRef = doc(db, 'issues', duplicateIssue.id);
+            await updateDoc(issueRef, {
+                upvotes: increment(1),
+                upvotedBy: arrayUnion(currentUser.uid)
+            });
+            setDuplicateModalOpen(false);
+            navigate('/feed', { state: { highlightIssueId: duplicateIssue.id } });
+        } catch (err) {
+            console.error("Error upvoting duplicate:", err);
+            setError("Failed to upvote. Please try manually in the feed.");
+        }
+    };
+
     const isGeneralOffice = formData.department === "GENERAL/PRINCIPAL OFFICE DEPARTMENT";
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e, forceSubmit = false) => {
         e.preventDefault();
         setError("");
         setMapError(false);
+        setIsCheckingDuplicate(false);
 
         const scrollToError = () => {
             setTimeout(() => {
@@ -159,6 +224,34 @@ const ReportIssue = () => {
             const mapSection = document.getElementById('map-section');
             mapSection?.scrollIntoView({ behavior: 'smooth' });
             return;
+        }
+
+        // --- STEP 3: DUPLICATE DETECTION CHECK ---
+        if (!forceSubmit) {
+            setIsCheckingDuplicate(true);
+            try {
+                const recentIssues = await fetchRecentDepartmentIssues(formData.department);
+                console.log("Found recent issues for comparison:", recentIssues);
+                
+                if (recentIssues.length > 0) {
+                    const matchedId = await checkDuplicateWithGemini(formData.title, formData.manualLocation, recentIssues);
+                    console.log("Gemini Match Result ID:", matchedId);
+                    
+                    if (matchedId && matchedId !== 'null') {
+                        const issueSnap = await getDoc(doc(db, "issues", matchedId));
+                        if (issueSnap.exists()) {
+                            setDuplicateIssue({ id: matchedId, ...issueSnap.data() });
+                            setDuplicateModalOpen(true);
+                            setIsCheckingDuplicate(false);
+                            return; 
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Duplicate check failed:", err);
+            } finally {
+                setIsCheckingDuplicate(false);
+            }
         }
 
         setIsSubmitting(true);
@@ -465,10 +558,15 @@ const ReportIssue = () => {
 
                             <Button
                                 type="submit"
-                                disabled={isSubmitting || isSuccess}
-                                className={`w-full md:w-auto px-12 h-14 bg-primary-gradient text-white text-lg font-bold rounded-2xl shadow-xl hover:brightness-110 transition-all duration-300 active:scale-[0.98] shadow-primary/20 ${(isSubmitting || isSuccess) ? "opacity-70 cursor-not-allowed" : ""}`}
+                                disabled={isSubmitting || isSuccess || isCheckingDuplicate}
+                                className={`w-full md:w-auto px-12 h-14 bg-primary-gradient text-white text-lg font-bold rounded-2xl shadow-xl hover:brightness-110 transition-all duration-300 active:scale-[0.98] shadow-primary/20 ${(isSubmitting || isSuccess || isCheckingDuplicate) ? "opacity-70 cursor-not-allowed" : ""}`}
                             >
-                                {isSubmitting ? (
+                                {isCheckingDuplicate ? (
+                                    <>
+                                        <Loader2 className="mr-2 animate-spin text-white" size={20} />
+                                        Checking for similar issues...
+                                    </>
+                                ) : isSubmitting ? (
                                     <>
                                         <Loader2 className="mr-2 animate-spin" size={20} />
                                         Submitting...
@@ -483,6 +581,91 @@ const ReportIssue = () => {
                     </form>
                 </CardContent>
             </Card>
+
+            {/* --- DUPLICATE DETECTION MODAL --- */}
+            <Dialog open={duplicateModalOpen} onOpenChange={setDuplicateModalOpen}>
+                <DialogContent className="max-w-[95vw] lg:max-w-5xl w-full max-h-[85vh] overflow-hidden p-0 shadow-2xl border-none rounded-[2rem] bg-slate-50/50 backdrop-blur-xl">
+                    <div className="grid grid-cols-1 md:grid-cols-12 h-full overflow-hidden">
+                        {/* Left: Image Proof */}
+                        <div className="md:col-span-5 h-[300px] md:h-full relative bg-slate-900 overflow-hidden flex items-center justify-center">
+                            <div 
+                                className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125"
+                                style={{ backgroundImage: `url(${duplicateIssue?.imageUrl})` }}
+                            />
+                            <img 
+                                src={duplicateIssue?.imageUrl} 
+                                alt="Duplicate Issue"
+                                className="relative z-10 w-full h-full object-contain p-6"
+                            />
+                            <div className="absolute top-6 left-6 z-20">
+                                <span className="bg-red-500 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-lg animate-pulse">
+                                    Similar Issue Detected
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Right: Content & Action */}
+                        <div className="md:col-span-7 flex flex-col max-h-[85vh] bg-white">
+                            <div className="p-8 md:p-10 flex-grow overflow-y-auto custom-scrollbar">
+                                <DialogHeader className="mb-8">
+                                    <DialogTitle className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight leading-tight">
+                                        Wait! This looks extremely similar to an existing report.
+                                    </DialogTitle>
+                                    <DialogDescription className="text-base text-slate-500 font-medium mt-2">
+                                        Reporting the same issue multiple times can slow down the admin team. We recommend upvoting this existing report instead!
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                {/* Issue Summary Card */}
+                                <div className="space-y-6">
+                                    <div className="p-6 rounded-[1.5rem] bg-slate-50 border border-slate-100 relative overflow-hidden group transition-all hover:bg-slate-100/50">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">
+                                                {duplicateIssue?.category}
+                                            </span>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                                ID: {duplicateIssue?.id?.slice(-6)}
+                                            </span>
+                                        </div>
+                                        <h3 className="text-xl font-bold text-slate-800 mb-3">{duplicateIssue?.title}</h3>
+                                        <p className="text-sm text-slate-600 leading-relaxed line-clamp-3 mb-4">
+                                            {duplicateIssue?.description}
+                                        </p>
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                                            <MapPin size={14} className="text-primary" />
+                                            {duplicateIssue?.location?.manualAddress}
+                                        </div>
+                                    </div>
+
+                                    {/* Tracking Section */}
+                                    <div className="border-t border-slate-100 pt-6">
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 block mb-4">Current Status</span>
+                                        <StatusStepper issue={duplicateIssue} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-4">
+                                <Button 
+                                    onClick={handleUpvoteDuplicate}
+                                    className="flex-grow h-14 bg-primary-gradient text-white font-black text-base rounded-2xl shadow-xl shadow-primary/20 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                                >
+                                    <ThumbsUp size={20} className="fill-white" />
+                                    Yes, Upvote This Instead
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    onClick={(e) => handleSubmit(e, true)}
+                                    className="h-14 px-8 text-slate-400 hover:text-slate-600 font-bold text-sm bg-transparent border-2 border-transparent hover:border-slate-200 rounded-2xl"
+                                >
+                                    No, Report Anyway
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
