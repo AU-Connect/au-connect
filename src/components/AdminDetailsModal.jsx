@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import { MapPin, Clock, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { MapPin, Clock, CheckCircle, Loader2, AlertCircle, Star, Calendar, ThumbsUp } from 'lucide-react';
 import StatusStepper from './StatusStepper';
 import ImageUpload from './ImageUpload';
 import 'leaflet/dist/leaflet.css';
@@ -24,6 +24,7 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
     const [adminRemark, setAdminRemark] = useState('');
     const [resolvedImageUrl, setResolvedImageUrl] = useState(null);
     const [updating, setUpdating] = useState(false);
+    const [viewMode, setViewMode] = useState('current'); // 'current' or 'original'
 
     const openActionModal = (action) => {
         setSelectedAction(action);
@@ -46,17 +47,17 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
             const updateData = {
                 status: selectedAction,
                 adminRemarks: adminRemark,
-                lastUpdatedAt: new Date(),
-                statusHistory: arrayUnion({
+                lastUpdatedAt: new Date().toISOString(),
+                timeline: arrayUnion({
                     status: selectedAction,
-                    remarks: adminRemark,
-                    timestamp: new Date()
+                    message: `Admin Feedback: ${adminRemark}`,
+                    timestamp: new Date().toISOString()
                 })
             };
 
             if (selectedAction === 'Resolved' || selectedAction === 'Rejected') {
                 updateData.afterImageUrl = resolvedImageUrl;
-                updateData.resolvedAt = new Date();
+                updateData.resolvedAt = new Date().toISOString();
             }
 
             // Push changes to Firebase
@@ -126,6 +127,35 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
                                         {selectedIssue?.department}
                                     </span>
                                 </DialogDescription>
+
+                                {/* Accountability Step 4: Student Satisfaction Header */}
+                                {(selectedIssue?.studentRating || selectedIssue?.studentFeedbackText) && (
+                                    <div className="mt-5 p-4 rounded-2xl bg-amber-50/50 border border-amber-100/50 animate-in fade-in slide-in-from-top-2 duration-500">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-1.5">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Student Satisfaction</h4>
+                                                <div className="flex items-center gap-0.5 ml-2">
+                                                    {[1, 2, 3, 4, 5].map((s) => (
+                                                        <Star 
+                                                            key={s} 
+                                                            size={12} 
+                                                            fill={s <= (selectedIssue?.studentRating || 0) ? "#F59E0B" : "transparent"} 
+                                                            stroke={s <= (selectedIssue?.studentRating || 0) ? "#F59E0B" : "#D1D5DB"} 
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] font-black text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                                {selectedIssue?.studentRating}.0 / 5.0
+                                            </span>
+                                        </div>
+                                        {selectedIssue?.studentFeedbackText && (
+                                            <p className="text-sm italic text-slate-700 leading-relaxed pl-1 border-l-2 border-amber-200 ml-1 py-1">
+                                                "{selectedIssue.studentFeedbackText}"
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </DialogHeader>
 
                             {/* Reporter Profile Details */}
@@ -220,25 +250,67 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
 
                             {/* Progress Tracking */}
                             <div className="mt-8 border-t border-slate-100 pt-6">
-                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-1.5">
-                                    <Clock size={14} /> Resolution Progress
-                                </h4>
-                                <StatusStepper issue={selectedIssue} />
+                                <div className="flex items-center justify-between mb-6">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Clock size={14} /> {viewMode === 'original' ? 'Original Resolution Journey' : 'Current Resolution Journey'}
+                                    </h4>
+                                    
+                                    {/* History Toggle Switch */}
+                                    {selectedIssue?.oldTimeline?.length > 0 && (
+                                        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+                                            <button 
+                                                onClick={() => setViewMode('current')}
+                                                className={`px-3 py-1 text-[10px] font-black uppercase tracking-tighter rounded-md transition-all duration-300 ${viewMode === 'current' ? 'bg-white text-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                Current
+                                            </button>
+                                            <button 
+                                                onClick={() => setViewMode('original')}
+                                                className={`px-3 py-1 text-[10px] font-black uppercase tracking-tighter rounded-md transition-all duration-300 ${viewMode === 'original' ? 'bg-amber-100 text-amber-700 shadow-sm border border-amber-200' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                Original
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <StatusStepper 
+                                    issue={viewMode === 'current' 
+                                        ? {
+                                            ...selectedIssue,
+                                            // Defensive check to avoid blank screens with empty timelines
+                                            timeline: (selectedIssue?.timeline || []).slice(
+                                                Math.max(0, (selectedIssue?.timeline || []).map(t => t?.status).lastIndexOf('Reported'))
+                                            )
+                                          }
+                                        : { 
+                                            ...selectedIssue, 
+                                            status: selectedIssue.oldTimeline?.[0]?.status, 
+                                            timeline: selectedIssue.oldTimeline?.[0]?.timelineSnapshot || [],
+                                            // ARCHIVE FIX: Pin the start and end times separately
+                                            timestamp: selectedIssue.timestamp, // Original Start
+                                            resolvedAt: selectedIssue.oldTimeline?.[0]?.resolvedAt, // Original End
+                                            lastUpdatedAt: selectedIssue.oldTimeline?.[0]?.resolvedAt,
+                                            adminRemarks: selectedIssue.oldTimeline?.[0]?.adminRemarks || ""
+                                          }
+                                    } 
+                                    className={viewMode === 'original' ? 'opacity-70 grayscale-[30%] pointer-events-none' : ''}
+                                />
                             </div>
 
                             {/* Documented Proof Section */}
-                            {selectedIssue?.afterImageUrl && (
-                                <div className="mt-8 border-t border-slate-100 pt-6">
+                            {(viewMode === 'current' ? selectedIssue?.afterImageUrl : selectedIssue?.oldTimeline?.[0]?.afterImageUrl) && (
+                                <div className={`mt-8 border-t border-slate-100 pt-6 transition-all duration-300 ${viewMode === 'original' ? 'opacity-70' : ''}`}>
                                     <h4 className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4">
-                                        <CheckCircle size={14} className="text-emerald-500" /> Documented Proof
+                                        <CheckCircle size={14} className="text-emerald-500" /> 
+                                        {viewMode === 'original' ? 'Historical Proof (Attempt 1)' : 'Documented Proof'}
                                     </h4>
                                     <div className="h-56 md:h-72 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative shadow-inner flex items-center justify-center">
                                         <div
                                             className="absolute inset-0 bg-cover bg-center opacity-40 blur-2xl scale-125 transition-all"
-                                            style={{ backgroundImage: `url(${selectedIssue.afterImageUrl})` }}
+                                            style={{ backgroundImage: `url(${viewMode === 'current' ? selectedIssue.afterImageUrl : selectedIssue.oldTimeline[0].afterImageUrl})` }}
                                         ></div>
                                         <img 
-                                            src={selectedIssue.afterImageUrl} 
+                                            src={viewMode === 'current' ? selectedIssue.afterImageUrl : selectedIssue.oldTimeline[0].afterImageUrl} 
                                             alt="Proof Output" 
                                             className="w-full h-full object-contain relative z-10 p-2"
                                         />

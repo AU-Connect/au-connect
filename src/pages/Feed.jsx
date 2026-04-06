@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, or, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, or, where, orderBy, onSnapshot, doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import ComplaintCard from '../components/ComplaintCard';
 import Background from '../components/Background';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapPin, CheckCircle, Search, ListFilter, Filter, ArrowUpDown, ThumbsUp, Clock } from 'lucide-react';
+import { MapPin, CheckCircle, Search, ListFilter, Filter, ArrowUpDown, ThumbsUp, Clock, Star, Loader2 } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 // Fix for default marker icons in Leaflet with React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -30,6 +31,13 @@ L.Icon.Default.mergeOptions({
 const Feed = () => {
     const { currentUser, userData, loading: authLoading } = useAuth();
     const navigate = useNavigate();
+    const [hoverRating, setHoverRating] = useState(0);
+    const [localRating, setLocalRating] = useState(0);
+    const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+    const [feedbackText, setFeedbackText] = useState("");
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+    const [feedbackType, setFeedbackType] = useState('resolved'); // 'resolved' or 'reopened'
     const [issues, setIssues] = useState([]);
     const [activeFilter, setActiveFilter] = useState('My Department');
     const [loading, setLoading] = useState(true);
@@ -38,6 +46,82 @@ const Feed = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [sortBy, setSortBy] = useState('latest');
+    const [viewMode, setViewMode] = useState('current'); // 'current' or 'original'
+
+    const handleFeedbackSubmit = async (type) => {
+        if (!selectedIssue) return;
+        setIsSubmittingFeedback(true);
+        const shouldReopen = type === 'reopened';
+        
+        try {
+            const issueRef = doc(db, "issues", selectedIssue.id);
+            
+            // Step 2 Logic: Capture History Snapshot on Re-open
+            if (shouldReopen) {
+                const historyEntry = {
+                    status: selectedIssue.status,
+                    adminRemarks: selectedIssue.adminRemarks || "No remarks provided",
+                    resolvedAt: selectedIssue.resolvedAt || new Date().toISOString(),
+                    afterImageUrl: selectedIssue.afterImageUrl || null,
+                    studentRating: localRating,
+                    studentFeedback: feedbackText,
+                    timelineSnapshot: selectedIssue.timeline || []
+                };
+
+                await setDoc(issueRef, {
+                    oldTimeline: arrayUnion(historyEntry),
+                    // Reset fields for the NEW cycle
+                    status: 'Reported',
+                    adminRemarks: "", // Clear for new admin entry
+                    afterImageUrl: null, // Clear for new proof entry
+                    reopenedByStudent: true,
+                    studentRating: localRating, // Latest rating
+                    studentFeedbackText: feedbackText, // Latest feedback
+                    timeline: [...(selectedIssue.timeline || []), {
+                        status: 'Reported',
+                        message: `Issue re-opened by student: "${feedbackText}"`,
+                        timestamp: new Date().toISOString()
+                    }]
+                }, { merge: true });
+            } else {
+                // Normal resolution feedback
+                await setDoc(issueRef, {
+                    studentRating: localRating,
+                    studentFeedbackText: feedbackText,
+                    reopenedByStudent: false,
+                    timeline: [...(selectedIssue.timeline || []), {
+                        status: 'Resolved',
+                        message: `Student feedback: ${localRating} stars - "${feedbackText || 'No comments'}"`,
+                        timestamp: new Date().toISOString()
+                    }]
+                }, { merge: true });
+            }
+
+            // Success Visual Feedback (In-Modal Success)
+            setFeedbackType(type);
+            setFeedbackSuccess(true);
+            
+            // Auto-close after 2 seconds
+            setTimeout(() => {
+                setFeedbackModalOpen(false);
+                setFeedbackSuccess(false);
+                setFeedbackText("");
+            }, 2000);
+
+            // Update selected issue locally
+            setSelectedIssue({ 
+                ...selectedIssue, 
+                status: shouldReopen ? 'Reported' : selectedIssue.status,
+                oldTimeline: shouldReopen ? [...(selectedIssue.oldTimeline || []), {}] : selectedIssue.oldTimeline,
+                rating: localRating,
+                feedbackText: feedbackText
+            });
+        } catch (error) {
+            console.error("Error submitting feedback:", error);
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
+    };
 
     useEffect(() => {
         // 1. Initial Gate - Not logged in
@@ -298,9 +382,18 @@ const Feed = () => {
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1">
                                         ID: {selectedIssue?.id?.slice(-6)}
                                     </span>
-                                    <DialogTitle className="text-2xl font-bold text-slate-800 leading-tight">
-                                        {selectedIssue?.title}
-                                    </DialogTitle>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <DialogTitle className="text-2xl font-bold text-slate-800 leading-tight">
+                                            {selectedIssue?.title}
+                                        </DialogTitle>
+                                        
+                                        {/* Accountability Step: Re-opened Badge */}
+                                        {selectedIssue?.reopenedByStudent && (
+                                            <span className="bg-red-600 text-white px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest shadow-lg animate-pulse flex items-center gap-1 shrink-0 border border-red-500">
+                                                RE-OPENED
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <DialogDescription className="flex flex-wrap items-center gap-2 mt-3">
                                     <span className="px-3 py-1 bg-primary/10 text-primary font-extrabold rounded-full border border-primary/20 text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-sm">
@@ -352,7 +445,7 @@ const Feed = () => {
 
                             {/* Location Section */}
                             <div className="mt-8 border-t border-slate-100 pt-6">
-                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                     <MapPin size={14} /> Recorded Location
                                 </h4>
                                 <p className="text-sm font-medium text-slate-700 mb-3">
@@ -403,24 +496,234 @@ const Feed = () => {
                                 )}
                             </div>
 
-                            <div className="mt-8 border-t border-slate-100 pt-6 flex-grow">
-                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Tracking Timeline</h4>
-                                <StatusStepper issue={selectedIssue} />
+                            <div className="mt-8 border-t border-slate-100 pt-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tracking Timeline</h4>
+                                    
+                                    {/* History Toggle Switch */}
+                                    {selectedIssue?.oldTimeline?.length > 0 && (
+                                        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+                                            <button 
+                                                onClick={() => setViewMode('current')}
+                                                className={`px-3 py-1 text-[10px] font-black uppercase tracking-tighter rounded-md transition-all duration-300 ${viewMode === 'current' ? 'bg-white text-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                Current
+                                            </button>
+                                            <button 
+                                                onClick={() => setViewMode('original')}
+                                                className={`px-3 py-1 text-[10px] font-black uppercase tracking-tighter rounded-md transition-all duration-300 ${viewMode === 'original' ? 'bg-amber-100 text-amber-700 shadow-sm border border-amber-200' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                Original
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <StatusStepper 
+                                    issue={viewMode === 'current' 
+                                        ? {
+                                            ...selectedIssue,
+                                            // Defensive check: Only slice if timeline exists
+                                            timeline: (selectedIssue?.timeline || []).slice(
+                                                Math.max(0, (selectedIssue?.timeline || []).map(t => t?.status).lastIndexOf('Reported'))
+                                            )
+                                          }
+                                        : { 
+                                            ...selectedIssue, 
+                                            status: selectedIssue.oldTimeline?.[0]?.status, 
+                                            timeline: selectedIssue.oldTimeline?.[0]?.timelineSnapshot || [],
+                                            // ARCHIVE FIX: Pin the start and end times separately
+                                            timestamp: selectedIssue.timestamp, // Original Start
+                                            resolvedAt: selectedIssue.oldTimeline?.[0]?.resolvedAt, // Original End
+                                            lastUpdatedAt: selectedIssue.oldTimeline?.[0]?.resolvedAt,
+                                            adminRemarks: selectedIssue.oldTimeline?.[0]?.adminRemarks
+                                          }
+                                    } 
+                                    className={viewMode === 'original' ? 'opacity-70 grayscale-[30%] pointer-events-none' : ''}
+                                />
                             </div>
 
+                            {/* Rating Section - Accountability Step 1 & 2 */}
+                            {selectedIssue?.status === 'Resolved' && (currentUser?.email === (selectedIssue?.reporter?.email || selectedIssue?.userId)) && (
+                                <div className="mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="flex flex-col items-center justify-center p-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                                <CheckCircle className="text-emerald-600" size={16} />
+                                            </div>
+                                            <h4 className="text-sm font-bold text-slate-800 tracking-tight">Rate the Resolution</h4>
+                                        </div>
+                                        
+                                        <p className="text-xs text-slate-500 mb-4 text-center px-4">
+                                            How satisfied are you with the work done?
+                                        </p>
+
+                                        <div className="flex items-center gap-2">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <button
+                                                    key={star}
+                                                    disabled={selectedIssue?.rating}
+                                                    onMouseEnter={() => !selectedIssue?.rating && setHoverRating(star)}
+                                                    onMouseLeave={() => !selectedIssue?.rating && setHoverRating(0)}
+                                                    onClick={() => {
+                                                        if (!selectedIssue?.rating) {
+                                                            setLocalRating(star);
+                                                            setFeedbackModalOpen(true);
+                                                        }
+                                                    }}
+                                                    className={`p-1 transition-all duration-200 ${!selectedIssue?.rating ? 'hover:scale-125 cursor-pointer' : 'cursor-default'}`}
+                                                >
+                                                    <Star
+                                                        size={32}
+                                                        fill={(hoverRating || localRating || selectedIssue?.rating) >= star ? "#FFD700" : "transparent"}
+                                                        stroke={(hoverRating || localRating || selectedIssue?.rating) >= star ? "#FFD700" : "#CBD5E1"}
+                                                        className="transition-colors duration-200"
+                                                    />
+                                                </button>
+                                            ))}
+                                        </div>
+                                        
+                                        {selectedIssue?.rating && (
+                                            <div className="mt-4 flex flex-col items-center gap-2">
+                                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400">Feedback Submitted</p>
+                                                {selectedIssue?.feedbackText && (
+                                                    <p className="text-sm italic text-slate-600 bg-white/60 p-3 rounded-lg border border-slate-100 max-w-md text-center shadow-sm">
+                                                        "{selectedIssue.feedbackText}"
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Feedback Modal - Accountability Step 2 */}
+                            <Dialog 
+                                open={feedbackModalOpen} 
+                                onOpenChange={(open) => {
+                                    setFeedbackModalOpen(open);
+                                    // SAFETY FIX: If closing without success, clear the local stars
+                                    if (!open && !feedbackSuccess) {
+                                        setLocalRating(0);
+                                        setFeedbackText("");
+                                    }
+                                }}
+                            >
+                                <DialogContent className="max-w-md w-[95vw] rounded-3xl p-6 md:p-8 bg-white border-none shadow-2xl overflow-visible">
+                                    {feedbackSuccess ? (
+                                        <div className="py-12 flex flex-col items-center text-center animate-in zoom-in duration-300">
+                                            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-6 shadow-sm border border-emerald-100">
+                                                <CheckCircle className="text-emerald-500 w-10 h-10" />
+                                            </div>
+                                            <h3 className="text-2xl font-black text-slate-800 mb-2">
+                                                {feedbackType === 'reopened' ? "Sent for Re-inspection" : "Feedback Submitted"}
+                                            </h3>
+                                            <p className="text-slate-500 font-medium px-4">
+                                                {feedbackType === 'reopened' 
+                                                    ? "This issue has been moved back to the Reported state. Faculty will be notified."
+                                                    : "Thank you for helping us maintain AU quality standards!"}
+                                            </p>
+                                            <div className="mt-10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                <Loader2 className="animate-spin" size={12} /> Closing Modal...
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <DialogHeader className="text-center space-y-4 pt-4">
+                                                <DialogTitle className="text-2xl font-black text-slate-800">
+                                                    How was your experience?
+                                                </DialogTitle>
+
+                                                {/* Visual Star Confirmation Recap */}
+                                                <div className="flex items-center justify-center gap-1.5 my-1">
+                                                    {[1, 2, 3, 4, 5].map((s) => (
+                                                        <Star 
+                                                            key={s} 
+                                                            size={18} 
+                                                            fill={s <= localRating ? "#FFD700" : "transparent"} 
+                                                            stroke={s <= localRating ? "#FFD700" : "#CBD5E1"} 
+                                                            className="transition-all duration-300"
+                                                        />
+                                                    ))}
+                                                    <span className="ml-2 text-sm font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 shadow-sm">
+                                                        {localRating}/5
+                                                    </span>
+                                                </div>
+
+                                                <DialogDescription className="text-slate-500 font-medium pb-2 text-sm">
+                                                    Please tell us more about the resolution.
+                                                </DialogDescription>
+                                            </DialogHeader>
+
+                                            <div className="space-y-6 mt-4">
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-center px-1">
+                                                        <label className="text-xs font-black uppercase tracking-widest text-slate-800">Additional Feedback</label>
+                                                        {localRating <= 2 && (
+                                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-tighter">* Required for {localRating} stars</span>
+                                                        )}
+                                                    </div>
+                                                    <textarea
+                                                        value={feedbackText}
+                                                        onChange={(e) => setFeedbackText(e.target.value)}
+                                                        placeholder={localRating <= 2 ? "Please explain what went wrong and how we can fix it..." : "Anything else you want to share? (Optional)"}
+                                                        className="w-full h-32 p-4 rounded-2xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-slate-700 font-medium resize-none placeholder:text-slate-400"
+                                                    />
+                                                </div>
+
+                                                <div className="flex flex-col gap-3">
+                                                    <Button
+                                                        disabled={isSubmittingFeedback || (localRating <= 2 && feedbackText.trim().length < 5)}
+                                                        onClick={() => handleFeedbackSubmit('resolved')}
+                                                        className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-[0.98] disabled:opacity-50"
+                                                    >
+                                                        {isSubmittingFeedback ? <Loader2 className="animate-spin" /> : "Submit Feedback"}
+                                                    </Button>
+
+                                                    {(localRating >= 3) && !isSubmittingFeedback && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setFeedbackText(""); // Clear any accidental typing
+                                                                handleFeedbackSubmit('resolved');
+                                                            }}
+                                                            className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest"
+                                                        >
+                                                            No thanks, just submit rating
+                                                        </button>
+                                                    )}
+
+                                                    {localRating <= 2 && (
+                                                        <div className="flex flex-col gap-2 pt-2">
+                                                            <button
+                                                                disabled={isSubmittingFeedback || feedbackText.trim().length < 5}
+                                                                onClick={() => handleFeedbackSubmit('reopened')}
+                                                                className="w-full py-2 flex items-center justify-center gap-2 text-xs font-black text-red-500 hover:text-red-600 transition-colors uppercase tracking-widest disabled:opacity-30 underline decoration-red-500/30 underline-offset-4"
+                                                            >
+                                                                <ArrowUpDown size={14} className="rotate-180" />
+                                                                Submit & Re-open Issue
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </DialogContent>
+                            </Dialog>
+
                             {/* Documented Proof Section */}
-                            {selectedIssue?.afterImageUrl && (
-                                <div className="mt-8 border-t border-slate-100 pt-6">
+                            {(viewMode === 'current' ? selectedIssue?.afterImageUrl : selectedIssue?.oldTimeline?.[0]?.afterImageUrl) && (
+                                <div className={`mt-8 border-t border-slate-100 pt-6 transition-all duration-300 ${viewMode === 'original' ? 'opacity-70 scale-95 origin-top grayscale-[50%]' : ''}`}>
                                     <h4 className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4">
-                                        <CheckCircle size={14} className="text-emerald-500" /> Documented Proof
+                                        <CheckCircle size={14} className="text-emerald-500" /> 
+                                        {viewMode === 'original' ? 'Historical Proof (Attempt 1)' : 'Documented Proof'}
                                     </h4>
                                     <div className="h-56 md:h-72 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative shadow-inner flex items-center justify-center">
                                         <div
                                             className="absolute inset-0 bg-cover bg-center opacity-40 blur-2xl scale-125 transition-all"
-                                            style={{ backgroundImage: `url(${selectedIssue.afterImageUrl})` }}
+                                            style={{ backgroundImage: `url(${viewMode === 'current' ? selectedIssue.afterImageUrl : selectedIssue.oldTimeline[0].afterImageUrl})` }}
                                         ></div>
                                         <img 
-                                            src={selectedIssue.afterImageUrl} 
+                                            src={viewMode === 'current' ? selectedIssue.afterImageUrl : selectedIssue.oldTimeline[0].afterImageUrl} 
                                             alt="Proof Output" 
                                             className="w-full h-full object-contain relative z-10 p-2"
                                         />

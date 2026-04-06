@@ -72,7 +72,7 @@ const Home = () => {
                         className="mb-4 flex items-center justify-center gap-2 cursor-default"
                     >
                         <span className="text-slate-500 text-lg font-medium tracking-wide">
-                            Welcome back, <span className="text-primary font-bold">{currentUser.displayName?.split(' ')[0] || 'Student'}</span>
+                            Welcome back, <span className="text-primary font-bold">{userData?.name || currentUser.displayName || 'Student'}</span>
                         </span>
                         <motion.span 
                             animate={{ rotate: [0, 20, 0, 20, 0] }}

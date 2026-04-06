@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, ThumbsUp, Calendar, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { MapPin, ThumbsUp, Calendar, AlertCircle, Clock, CheckCircle2, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AdminIssueCard = ({ issue, onClick }) => {
@@ -36,7 +36,9 @@ const AdminIssueCard = ({ issue, onClick }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={() => onClick(issue)}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/50 flex flex-col h-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
+            className={`bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden border flex flex-col h-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative ${
+                issue.reopenedByStudent ? 'border-red-500 ring-2 ring-red-500/20' : 'border-white/50'
+            }`}
         >
             {/* Project Image */}
             <div className="h-48 w-full bg-slate-100 relative shrink-0">
@@ -45,11 +47,29 @@ const AdminIssueCard = ({ issue, onClick }) => {
                     alt={issue.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
-                <div className="absolute top-3 right-3">
+                
+                {/* Floating Badges */}
+                <div className="absolute top-3 right-3 flex flex-col gap-2">
                     <span className="bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold text-primary shadow-sm border border-white/20">
                         {issue.category || 'Uncategorized'}
                     </span>
+                    {issue.studentRating && (
+                        <span className="bg-amber-400 text-white px-2.5 py-1 rounded-full text-[12px] font-black shadow-lg flex items-center justify-center gap-1 border border-amber-300 animate-in fade-in zoom-in duration-300">
+                            <Star size={12} fill="white" stroke="white" />
+                            {issue.studentRating}.0
+                        </span>
+                    )}
                 </div>
+
+                {/* Re-opened Badge */}
+                {issue.reopenedByStudent && (
+                    <div className="absolute bottom-3 left-3 z-10">
+                        <span className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-1.5 animate-pulse border border-red-500">
+                            <AlertCircle size={12} />
+                            RE-OPENED
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Content Section */}
@@ -59,23 +79,25 @@ const AdminIssueCard = ({ issue, onClick }) => {
                         ID: {issue.id?.slice(-6)}
                     </span>
                     <div className="flex items-start justify-between gap-3">
-                        <h3 className="font-bold text-lg line-clamp-1 flex-grow" style={{ color: '#1E293B' }}>
+                        <h3 className="font-bold text-lg line-clamp-1 flex-grow text-[#1E293B]">
                             {issue.title}
                         </h3>
-                        <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${issue.status === 'Resolved' ? 'bg-green-100 text-green-700' :
+                        <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${
+                            issue.status === 'Resolved' ? 'bg-green-100 text-green-700' :
                             issue.status === 'InProgress' ? 'bg-blue-100 text-blue-700' :
                             issue.status === 'Reported' ? 'bg-orange-100 text-orange-700' :
-                            statusStyle.color}`}>
+                            statusStyle.color
+                        }`}>
                             {issue.status || 'Reported'}
                         </span>
                     </div>
                 </div>
 
-                <p className="text-sm line-clamp-2 mb-4 leading-relaxed" style={{ color: '#475569' }}>
+                <p className="text-sm line-clamp-2 mb-4 leading-relaxed text-[#475569]">
                     {issue.description}
                 </p>
 
-                {/* Footer Section */}
+                {/* Tracking Footer */}
                 <div className="mt-auto">
                     <div className="flex items-center justify-between pt-4 pb-3 mb-1">
                         <div className="flex items-center text-slate-400 text-xs gap-1.5 max-w-[50%]">

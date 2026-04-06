@@ -42,13 +42,22 @@ const StatusStepper = ({ issue }) => {
 
     const getStepDetails = (stepId, index) => {
         if (index > currentIndex) return { timestamp: null, remarks: null };
-        if (issue.statusHistory && Array.isArray(issue.statusHistory)) {
-            const matches = issue.statusHistory.filter(h => h.status === stepId);
-            if (matches.length > 0) {
-                const latestMatch = matches[matches.length - 1];
-                return { timestamp: latestMatch.timestamp, remarks: latestMatch.remarks };
+        
+        // Use the timeline array as the new Source of Truth
+        if (issue.timeline && Array.isArray(issue.timeline)) {
+            // Find the entry that matches this step ID
+            const match = issue.timeline.find(t => t.status === stepId);
+            if (match) {
+                return { 
+                    // Fallback to top-level timestamp ONLY for Reported if missing in timeline
+                    timestamp: match.timestamp || (stepId === 'Reported' ? issue.timestamp : null), 
+                    // Remarks logic: Current status shows current admin remarks, previous steps show message fragments
+                    remarks: stepId === currentStatus ? issue.adminRemarks : (match.message?.includes(':') ? match.message.split(':').slice(1).join(':') : null) 
+                };
             }
         }
+
+        // Fallbacks for legacy/incomplete data
         if (stepId === 'Reported') return { timestamp: issue.timestamp, remarks: null };
         if (stepId === currentStatus) return { timestamp: issue.lastUpdatedAt || issue.resolvedAt || issue.timestamp, remarks: issue.adminRemarks };
         return { timestamp: null, remarks: null };
@@ -56,15 +65,22 @@ const StatusStepper = ({ issue }) => {
 
     const formatTime = (ts) => {
         if (!ts) return null;
-        let dateObj;
-        if (ts.seconds) dateObj = new Date(ts.seconds * 1000);
-        else if (ts.toMillis) dateObj = new Date(ts.toMillis());
-        else if (ts instanceof Date) dateObj = ts;
-        else dateObj = new Date(ts);
-        
-        return dateObj.toLocaleString('en-US', {
-            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
+        try {
+            let dateObj;
+            if (ts.seconds) dateObj = new Date(ts.seconds * 1000);
+            else if (ts.toMillis) dateObj = new Date(ts.toMillis());
+            else if (ts instanceof Date) dateObj = ts;
+            // Handle ISO strings from our manual timeline entries
+            else dateObj = new Date(ts);
+            
+            if (isNaN(dateObj.getTime())) return null;
+
+            return dateObj.toLocaleString('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        } catch (e) {
+            return null;
+        }
     };
 
     return (
