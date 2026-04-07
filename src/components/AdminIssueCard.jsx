@@ -36,8 +36,8 @@ const AdminIssueCard = ({ issue, onClick }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={() => onClick(issue)}
-            className={`bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden border flex flex-col h-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative ${
-                issue.reopenedByStudent ? 'border-red-500 ring-2 ring-red-500/20' : 'border-white/50'
+            className={`bg-white rounded-3xl overflow-hidden border flex flex-col h-full shadow-[0_15px_40px_-5px_rgba(0,0,0,0.08)] hover:shadow-[0_25px_60px_-10px_rgba(0,0,0,0.15)] hover:-translate-y-1.5 transition-all duration-500 cursor-pointer group relative ${
+                issue.reopenedByStudent ? 'border-red-500 ring-4 ring-red-500/10' : 'border-slate-100'
             }`}
         >
             {/* Project Image */}

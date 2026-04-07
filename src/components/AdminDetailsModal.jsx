@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import { MapPin, Clock, CheckCircle, Loader2, AlertCircle, Star, Calendar, ThumbsUp } from 'lucide-react';
+import { MapPin, Clock, CheckCircle, Loader2, AlertCircle, Star, Calendar, ThumbsUp, Mail } from 'lucide-react';
 import StatusStepper from './StatusStepper';
 import ImageUpload from './ImageUpload';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import emailjs from '@emailjs/browser';
 
 // Fix for default marker icons in Leaflet with React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -25,6 +26,28 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
     const [resolvedImageUrl, setResolvedImageUrl] = useState(null);
     const [updating, setUpdating] = useState(false);
     const [viewMode, setViewMode] = useState('current'); // 'current' or 'original'
+
+    const sendResolutionEmail = (studentName, studentEmail, issueTitle, remarks) => {
+        const templateParams = {
+            name: studentName,
+            email: studentEmail,
+            title: issueTitle,
+            remarks: remarks
+        };
+
+        emailjs.send(
+            import.meta.env.VITE_EMAILJS_SERVICE_ID,
+            import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+            templateParams,
+            import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+        )
+        .then(() => {
+            console.log('RESOLUTION EMAIL SENT SUCCESS!');
+        })
+        .catch((err) => {
+            console.error('FAILED TO SEND RESOLUTION EMAIL:', err);
+        });
+    };
 
     const openActionModal = (action) => {
         setSelectedAction(action);
@@ -58,13 +81,28 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
             if (selectedAction === 'Resolved' || selectedAction === 'Rejected') {
                 updateData.afterImageUrl = resolvedImageUrl;
                 updateData.resolvedAt = new Date().toISOString();
+                
+                // CLEAN-UP RE-OPEN STATE: The corrective action is now finished
+                updateData.reopenedByStudent = false; 
+                updateData.studentRating = null;
+                updateData.studentFeedbackText = null;
             }
 
             // Push changes to Firebase
             await updateDoc(issueRef, updateData);
 
+            // Step 4: Trigger Email Alert to Student (Only on Resolution)
+            if (selectedAction === 'Resolved' && selectedIssue?.reporter?.email) {
+                sendResolutionEmail(
+                    selectedIssue.reporter.name || "Student",
+                    selectedIssue.reporter.email,
+                    selectedIssue.title,
+                    adminRemark
+                );
+            }
+
             // Trigger success UI flow
-            onSuccess(`Success: Issue marked as ${selectedAction}!`);
+            onSuccess(`Success: Issue marked as ${selectedAction}!${selectedAction === 'Resolved' ? ' Email notification sent.' : ''}`);
             setActionModalOpen(false);
             onClose();
 
@@ -129,7 +167,7 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
                                 </DialogDescription>
 
                                 {/* Accountability Step 4: Student Satisfaction Header */}
-                                {(selectedIssue?.studentRating || selectedIssue?.studentFeedbackText) && (
+                                {viewMode === 'current' && (selectedIssue?.studentRating || selectedIssue?.studentFeedbackText) && (
                                     <div className="mt-5 p-4 rounded-2xl bg-amber-50/50 border border-amber-100/50 animate-in fade-in slide-in-from-top-2 duration-500">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-1.5">
@@ -139,19 +177,19 @@ const AdminDetailsModal = ({ selectedIssue, onClose, onSuccess }) => {
                                                         <Star 
                                                             key={s} 
                                                             size={12} 
-                                                            fill={s <= (selectedIssue?.studentRating || 0) ? "#F59E0B" : "transparent"} 
-                                                            stroke={s <= (selectedIssue?.studentRating || 0) ? "#F59E0B" : "#D1D5DB"} 
+                                                            fill={s <= (viewMode === 'current' ? (selectedIssue?.studentRating || 0) : (selectedIssue?.oldTimeline?.[0]?.studentRating || 0)) ? "#F59E0B" : "transparent"} 
+                                                            stroke={s <= (viewMode === 'current' ? (selectedIssue?.studentRating || 0) : (selectedIssue?.oldTimeline?.[0]?.studentRating || 0)) ? "#F59E0B" : "#D1D5DB"} 
                                                         />
                                                     ))}
                                                 </div>
                                             </div>
                                             <span className="text-[10px] font-black text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
-                                                {selectedIssue?.studentRating}.0 / 5.0
+                                                {viewMode === 'current' ? selectedIssue?.studentRating : selectedIssue?.oldTimeline?.[0]?.studentRating}.0 / 5.0
                                             </span>
                                         </div>
-                                        {selectedIssue?.studentFeedbackText && (
+                                        {(viewMode === 'current' ? selectedIssue?.studentFeedbackText : selectedIssue?.oldTimeline?.[0]?.studentFeedback) && (
                                             <p className="text-sm italic text-slate-700 leading-relaxed pl-1 border-l-2 border-amber-200 ml-1 py-1">
-                                                "{selectedIssue.studentFeedbackText}"
+                                                "{viewMode === 'current' ? selectedIssue.studentFeedbackText : selectedIssue.oldTimeline?.[0]?.studentFeedback}"
                                             </p>
                                         )}
                                     </div>

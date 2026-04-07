@@ -79,7 +79,7 @@ const Feed = () => {
                     studentFeedbackText: feedbackText, // Latest feedback
                     timeline: [...(selectedIssue.timeline || []), {
                         status: 'Reported',
-                        message: `Issue re-opened by student: "${feedbackText}"`,
+                        message: `Student Remarks: ${feedbackText || 'No remarks provided'}`,
                         timestamp: new Date().toISOString()
                     }]
                 }, { merge: true });
@@ -543,7 +543,7 @@ const Feed = () => {
                             </div>
 
                             {/* Rating Section - Accountability Step 1 & 2 */}
-                            {selectedIssue?.status === 'Resolved' && (currentUser?.email === (selectedIssue?.reporter?.email || selectedIssue?.userId)) && (
+                            {selectedIssue?.status === 'Resolved' && viewMode === 'current' && (currentUser?.email === (selectedIssue?.reporter?.email || selectedIssue?.userId)) && (
                                 <div className="mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     <div className="flex flex-col items-center justify-center p-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
                                         <div className="flex items-center gap-2 mb-3">

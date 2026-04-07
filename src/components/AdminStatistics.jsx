@@ -85,6 +85,14 @@ const AdminStatistics = ({ issues = [] }) => {
         }));
     }, [issues]);
 
+    // 4. Process Re-opened Issue Stats
+    const reopenedStats = useMemo(() => {
+        return {
+            active: issues.filter(i => i.reopenedByStudent && i.status !== 'Resolved').length,
+            corrected: issues.filter(i => (i.oldTimeline?.length > 0 || i.reopenedByStudent === false && i.oldTimeline?.length > 0) && i.status === 'Resolved').length
+        };
+    }, [issues]);
+
     const COLORS = ['#34C1E3', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#64748B'];
 
     if (issues.length === 0) {
@@ -283,6 +291,40 @@ const AdminStatistics = ({ issues = [] }) => {
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* Accountability Row: Moved to bottom as per user request */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="bg-white p-4 rounded-2xl border border-slate-200 border-l-4 border-l-red-500 shadow-sm flex items-center gap-3 group relative overflow-hidden"
+                >
+                    <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center text-red-600 shrink-0">
+                        <AlertCircle size={18} className="animate-pulse" />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Active Re-opens</p>
+                        <h4 className="text-xl font-black text-red-600 tracking-tighter leading-none">{reopenedStats.active}</h4>
+                    </div>
+                </motion.div>
+
+                <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white p-4 rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-sm flex items-center gap-3 group relative overflow-hidden"
+                >
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                        <CheckCircle size={18} />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Fixed Re-opens</p>
+                        <h4 className="text-xl font-black text-emerald-600 tracking-tighter leading-none">{reopenedStats.corrected}</h4>
                     </div>
                 </motion.div>
             </div>

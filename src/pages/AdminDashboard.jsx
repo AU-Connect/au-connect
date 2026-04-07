@@ -32,7 +32,9 @@ import {
     XCircle,
     Loader2,
     BarChart3,
-    TrendingUp
+    TrendingUp,
+    FileDown,
+    Download
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -45,6 +47,62 @@ const AdminDashboard = () => {
     const [selectedIssue, setSelectedIssue] = useState(null);
 
     const [toastMessage, setToastMessage] = useState(null);
+
+    const handleExportCSV = () => {
+        if (issues.length === 0) return;
+
+        // Define headers
+        const headers = ["Ticket ID", "Title", "Status", "Category", "Department", "Reporter", "Description", "Admin Remarks", "Date Reported", "Resolution Date"];
+        
+        // Convert issues to CSV rows - Sanitized and double-quoted for Excel safety
+        const rows = issues.map(issue => {
+            const formatDate = (ts) => {
+                if (!ts) return "N/A";
+                try {
+                    // 1. If it's a Firestore Timestamp {seconds, nanoseconds}
+                    if (ts.seconds) return new Date(ts.seconds * 1000).toLocaleString().replace(/,/g, '');
+                    // 2. If it's already an ISO string
+                    return new Date(ts).toLocaleString().replace(/,/g, '');
+                } catch {
+                    return "Date Error";
+                }
+            };
+
+            const rowData = [
+                issue.id?.slice(-8) || "N/A",
+                issue.title || "Untitled",
+                issue.status || "Pending",
+                issue.category || "General",
+                issue.department || "General Administration",
+                issue.reporter?.name || "Student",
+                issue.description || "No description provided",
+                issue.adminRemarks || "Decision Pending",
+                formatDate(issue.timestamp),
+                formatDate(issue.resolvedAt)
+            ];
+            // Wrap every field in double quotes and escape any internal quotes
+            return rowData.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",");
+        });
+
+        // Join into single string with safe separator
+        const csvContent = [
+            headers.map(h => `"${h}"`).join(","),
+            ...rows
+        ].join("\n");
+
+        // Create download link
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `AU-Connect_Report_${departmentName.replace(/\s+/g, '_')}_${new Date().toLocaleDateString()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setToastMessage("Report Downloaded Successfully!");
+        setTimeout(() => setToastMessage(null), 3000);
+    };
 
     useEffect(() => {
         if (!userData?.department_in_charge) return;
@@ -112,8 +170,8 @@ const AdminDashboard = () => {
     return (
         <div className="flex min-h-[calc(100vh-65px)] bg-slate-50 font-sans relative items-start">
             
-            {/* Custom Success Toast */}
-            {toastMessage && (
+            {/* Custom Success Toast - Only for Status Updates, not for Export (which has its own localized toast) */}
+            {toastMessage && toastMessage !== "Report Downloaded Successfully!" && (
                 <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-emerald-50 text-emerald-600 border border-emerald-200 px-6 py-3 rounded-full shadow-lg flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300">
                     <CheckCircle size={18} className="text-emerald-500" />
                     <span className="font-bold text-sm">{toastMessage}</span>
@@ -166,6 +224,25 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                            {/* Global Export Button - Only in Stats Tab */}
+                            {activeTab === 'stats' && (
+                                <div className="flex items-center gap-2">
+                                    {toastMessage === "Report Downloaded Successfully!" && (
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-right-4 fade-in duration-500 shadow-sm">
+                                            <Download size={12} className="animate-bounce" />
+                                            Success: Exported
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={handleExportCSV}
+                                        className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-all shadow-sm group active:scale-95"
+                                    >
+                                        <FileDown size={14} className="group-hover:translate-y-0.5 transition-transform" />
+                                        Export Report
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Search and Sort - Hide in Stats Mode */}
                             {activeTab !== 'stats' && (
                                 <>

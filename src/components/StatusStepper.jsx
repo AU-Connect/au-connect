@@ -48,11 +48,17 @@ const StatusStepper = ({ issue }) => {
             // Find the entry that matches this step ID
             const match = issue.timeline.find(t => t.status === stepId);
             if (match) {
+                const isStudentRemark = match.message?.includes('Student Remarks:');
                 return { 
                     // Fallback to top-level timestamp ONLY for Reported if missing in timeline
                     timestamp: match.timestamp || (stepId === 'Reported' ? issue.timestamp : null), 
-                    // Remarks logic: Current status shows current admin remarks, previous steps show message fragments
-                    remarks: stepId === currentStatus ? issue.adminRemarks : (match.message?.includes(':') ? match.message.split(':').slice(1).join(':') : null) 
+                    // Remarks logic: 
+                    // 1. If it's a student remark (from re-open) -> show it
+                    // 2. Otherwise if current status -> show standard admin remarks
+                    // 3. Otherwise -> parse from historical message
+                    remarks: isStudentRemark 
+                        ? match.message.split('Student Remarks:')[1] 
+                        : (stepId === currentStatus ? issue.adminRemarks : (match.message?.includes(':') ? match.message.split(':').slice(1).join(':') : null))
                 };
             }
         }
@@ -92,6 +98,8 @@ const StatusStepper = ({ issue }) => {
                     const isLast = index === steps.length - 1;
 
                     const { timestamp, remarks } = getStepDetails(step.id, index);
+                    // Check if this is a student remark for header labeling
+                    const isStudentRemark = step.id === 'Reported' && remarks && issue.reopenedByStudent;
                     const formattedDate = formatTime(timestamp);
 
                     return (
@@ -145,9 +153,9 @@ const StatusStepper = ({ issue }) => {
                                         <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-slate-100 flex flex-col gap-2 relative">
                                             <div className="absolute top-0 left-0 w-1 h-full bg-primary-gradient opacity-10" />
                                             <div className="flex items-center gap-2">
-                                                <div className={`w-1.5 h-1.5 rounded-full ${step.activeColor}`} />
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                                                    Admin Message
+                                                <div className={`w-1.5 h-1.5 rounded-full ${isStudentRemark ? 'bg-red-500' : step.activeColor}`} />
+                                                <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isStudentRemark ? 'text-red-600' : 'text-slate-400'}`}>
+                                                    {isStudentRemark ? 'Student Message' : 'Admin Message'}
                                                 </span>
                                             </div>
                                             <p className="text-[13px] text-slate-600 font-medium leading-relaxed font-sans whitespace-pre-wrap">
