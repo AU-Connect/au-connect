@@ -2,7 +2,7 @@ import React from 'react';
 
 const Footer = () => {
     return (
-        <footer className="w-full bg-surface border-t border-border-custom py-8 px-6 mt-auto">
+        <footer className="w-full bg-surface border-t border-border-custom py-4 px-6 mt-auto">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
                 <p className="text-body-text font-medium">
                     © 2026 Andhra University. All rights reserved.

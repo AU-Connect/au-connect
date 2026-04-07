@@ -7,12 +7,16 @@ import AdminDashboard from './pages/AdminDashboard';
 import Onboarding from './pages/Onboarding';
 import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import Unibot from './components/Unibot';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <div className="flex flex-col min-h-screen">
         <Navbar />
         <main className="flex-grow">
@@ -42,12 +46,13 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <AdminDashboard />
-              </ProtectedRoute>
+              </AdminRoute>
             } />
           </Routes>
         </main>
+        <Unibot />
         <Footer />
       </div>
     </Router>

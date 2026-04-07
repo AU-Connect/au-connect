@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Clock, ThumbsUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const ComplaintCard = ({ issue, index }) => {
+const ComplaintCard = ({ issue, index, onClick }) => {
     const { currentUser, userData } = useAuth();
     const [hasUpvoted, setHasUpvoted] = useState(false);
     const [isVoting, setIsVoting] = useState(false);
@@ -16,16 +16,22 @@ const ComplaintCard = ({ issue, index }) => {
     const canUpvote = isGeneral || isSameDept;
 
     useEffect(() => {
-        // Prevent double voting using local storage for this user+issue pair
-        if (currentUser && issue.id) {
+        // Prevent double voting using Firestore native source-of-truth
+        if (currentUser && issue.upvotedBy && Array.isArray(issue.upvotedBy)) {
+            setHasUpvoted(issue.upvotedBy.includes(currentUser.uid));
+        } else if (currentUser && issue.id) {
+            // Fallback for legacy issues that only used local storage
             const upvoted = localStorage.getItem(`upvote_${issue.id}_${currentUser.uid}`);
             if (upvoted === 'true') {
                 setHasUpvoted(true);
+            } else {
+                setHasUpvoted(false);
             }
         }
-    }, [issue.id, currentUser]);
+    }, [issue.upvotedBy, issue.id, currentUser]);
 
-    const handleUpvote = async () => {
+    const handleUpvote = async (e) => {
+        e.stopPropagation();
         if (!canUpvote || isVoting || !issue.id) return;
 
         setIsVoting(true);
@@ -33,23 +39,22 @@ const ComplaintCard = ({ issue, index }) => {
             const issueRef = doc(db, 'issues', issue.id);
 
             if (hasUpvoted) {
-                // Undo upvote
+                // Undo upvote globally
                 await updateDoc(issueRef, {
-                    upvotes: increment(-1)
+                    upvotes: increment(-1),
+                    upvotedBy: arrayRemove(currentUser.uid)
                 });
                 setHasUpvoted(false);
                 if (currentUser) {
-                    localStorage.removeItem(`upvote_${issue.id}_${currentUser.uid}`);
+                    localStorage.removeItem(`upvote_${issue.id}_${currentUser.uid}`); // Clean up legacy state
                 }
             } else {
-                // Add upvote
+                // Add upvote globally
                 await updateDoc(issueRef, {
-                    upvotes: increment(1)
+                    upvotes: increment(1),
+                    upvotedBy: arrayUnion(currentUser.uid)
                 });
                 setHasUpvoted(true);
-                if (currentUser) {
-                    localStorage.setItem(`upvote_${issue.id}_${currentUser.uid}`, 'true');
-                }
             }
         } catch (error) {
             console.error("Failed to toggle upvote:", error);
@@ -68,7 +73,8 @@ const ComplaintCard = ({ issue, index }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, delay: index * 0.1 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/50 flex flex-col h-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300"
+            onClick={onClick}
+            className="bg-white/95 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/50 flex flex-col h-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer"
         >
             <div className="h-48 w-full bg-slate-100 relative shrink-0">
                 <img
@@ -84,16 +90,25 @@ const ComplaintCard = ({ issue, index }) => {
             </div>
 
             <div className="p-5 flex flex-col flex-grow">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="font-bold text-lg line-clamp-1 flex-grow" style={{ color: '#1E293B' }}>
-                        {issue.title}
-                    </h3>
-                    <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${issue.status === 'Resolved' ? 'bg-green-100 text-green-700' :
-                        issue.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                            'bg-orange-100 text-orange-700'
-                        }`}>
-                        {issue.status || 'Reported'}
+                <div className="flex flex-col mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-1">
+                        ID: {issue.id?.slice(-6)}
                     </span>
+                    <div className="flex items-start justify-between gap-3">
+                        <h3 className="font-bold text-lg line-clamp-1 flex-grow" style={{ color: '#1E293B' }}>
+                            {issue.title}
+                        </h3>
+                        <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${
+                            issue.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700' :
+                            issue.status === 'InProgress' ? 'bg-blue-100 text-blue-700' :
+                            issue.status === 'Viewed' ? 'bg-indigo-100 text-indigo-700' :
+                            issue.status === 'OnHold' ? 'bg-amber-100 text-amber-700' :
+                            issue.status === 'Rejected' ? 'bg-rose-100 text-rose-700' :
+                            'bg-violet-100 text-violet-700'
+                        }`}>
+                            {issue.status || 'Reported'}
+                        </span>
+                    </div>
                 </div>
 
                 <p className="text-sm line-clamp-2 mb-4 leading-relaxed" style={{ color: '#475569' }}>

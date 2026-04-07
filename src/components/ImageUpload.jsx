@@ -21,6 +21,13 @@ const ImageUpload = ({ onUploadComplete }) => {
             return;
         }
 
+        // Check file size (5MB limit)
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+        if (selectedFile.size > MAX_FILE_SIZE) {
+            setError("File size is too large. Please select an image under 5MB.");
+            return;
+        }
+
         // Reset states
         setError('');
         setUploadedUrl('');
@@ -78,7 +85,7 @@ const ImageUpload = ({ onUploadComplete }) => {
             }
         } catch (err) {
             console.error("Cloudinary Upload Error:", err);
-            const errorMessage = "Failed to upload image. Please check your internet and try again.";
+            const errorMessage = `Failed to upload image: ${err.message || "Please check your internet and try again."}`;
             setError(errorMessage);
             alert(errorMessage); // Added alert for clarity
         } finally {

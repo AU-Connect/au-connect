@@ -1,7 +1,8 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.png';
+import { useUnibotStore } from '../hooks/useUnibotStore';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,31 +15,64 @@ import {
 const Navbar = () => {
     const { currentUser, userData, isOnboarded, logout } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
+    const { isOpen, setIsOpen } = useUnibotStore();
 
-    const navLinks = [
-        { name: 'Home', path: '/' },
-        { name: 'Feed', path: '/feed' },
-        { name: 'Report Issue', path: '/report' },
-        { name: 'Unibot', path: '/unibot' },
-    ];
+    const navLinks = userData?.role === 'admin'
+        ? [{ name: 'Dashboard', path: '/admin' }]
+        : [
+            { name: 'Home', path: '/' },
+            { name: 'Feed', path: '/feed' },
+            { name: 'Report Issue', path: '/report' },
+        ];
 
     const isActiveProfile = location.pathname === '/profile';
 
     return (
         <nav className="sticky top-0 z-[1001] w-full bg-surface border-b border-border-custom px-6 py-3 flex items-center justify-between shadow-sm">
-            {/* Left side: Logo */}
-            <Link to="/" className="flex items-center gap-2">
-                <img src={logo} alt="AU-Connect Logo" className="h-10 w-auto" />
-            </Link>
+            {/* Left side: Logo & Admin Context */}
+            <div className="flexItems-center flex items-center gap-4 lg:gap-6">
+                <Link to="/" className="flex items-center gap-2 shrink-0">
+                    <img src={logo} alt="AU-Connect Logo" className="h-10 w-auto" />
+                </Link>
+
+                {/* Highly Integrated Admin Overview */}
+                {userData?.role === 'admin' && userData?.department_in_charge && (
+                    <div className="hidden md:flex items-center gap-3 pl-4 lg:pl-6 border-l-2 border-slate-100">
+                        <span className="text-primary text-[10px] font-black px-2.5 py-1 bg-primary/10 rounded-md uppercase tracking-widest leading-none">
+                            Admin Panel
+                        </span>
+                        <h2 className="text-base lg:text-lg font-black text-slate-800 tracking-tight flex items-center gap-1.5 leading-tight">
+                            <span className="text-transparent bg-clip-text bg-primary-gradient py-0.5">
+                                {userData.department_in_charge === "General Admin" ? "General" : userData.department_in_charge.replace(/\s*[Dd]epartment\s*$/i, '').trim()}
+                            </span>
+                            <span>Department</span>
+                        </h2>
+                    </div>
+                )}
+            </div>
 
             {/* Right side: Navigation Links */}
             <div className="flex items-center gap-8">
-                {navLinks.map((link) => {
-                    const isActive = location.pathname === link.path;
+            {navLinks.map((link) => {
+                    const highlightTarget = location.state?.from;
+                    const isActive = location.pathname === link.path || 
+                                   ((location.pathname === '/onboarding' || location.pathname === '/login') && highlightTarget === link.path);
+                    
+                    const handleNavClick = (e) => {
+                        // Restricted paths for anyone who isn't fully onboarded yet
+                        const isRestricted = ['/feed', '/report'].includes(link.path);
+                        if (currentUser && !isOnboarded && isRestricted) {
+                            e.preventDefault();
+                            navigate('/onboarding', { state: { from: link.path } });
+                        }
+                    };
+
                     return (
                         <Link
                             key={link.path}
                             to={link.path}
+                            onClick={handleNavClick}
                             className={`transition-all duration-300 font-medium relative py-1 px-2 rounded-md ${isActive
                                 ? "text-primary bg-primary/5 shadow-[0_0_20px_rgba(52,193,227,0.4)] border border-primary/20 [text-shadow:0_0_8px_rgba(52,193,227,0.4)]"
                                 : "text-body-text hover:text-primary hover:bg-slate-50"
@@ -51,6 +85,31 @@ const Navbar = () => {
                         </Link>
                     );
                 })}
+
+                {/* Special Unibot Portal Button - Visible Globally for Students */}
+                {userData?.role !== 'admin' && (
+                    <button 
+                        onClick={() => {
+                            if (!currentUser) {
+                                navigate('/login', { state: { from: 'unibot' } });
+                            } else if (!isOnboarded) {
+                                navigate('/onboarding', { state: { from: 'unibot' } });
+                            } else {
+                                setIsOpen(true);
+                            }
+                        }}
+                        className={`transition-all duration-300 font-medium relative py-1 px-2 rounded-md ${
+                            (isOpen || ((location.pathname === '/onboarding' || location.pathname === '/login') && location.state?.from === 'unibot'))
+                            ? "text-primary bg-primary/5 shadow-[0_0_20px_rgba(52,193,227,0.4)] border border-primary/20 [text-shadow:0_0_8px_rgba(52,193,227,0.4)]"
+                            : "text-body-text hover:text-primary hover:bg-slate-50"
+                            }`}
+                    >
+                        Unibot
+                        {(isOpen || ((location.pathname === '/onboarding' || location.pathname === '/login') && location.state?.from === 'unibot')) && (
+                            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-primary-gradient rounded-full shadow-[0_0_8px_#34C1E3]" />
+                        )}
+                    </button>
+                )}
 
                 {currentUser ? (
                     <Link
